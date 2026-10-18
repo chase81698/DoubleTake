@@ -11,7 +11,10 @@ struct GeneralView: View {
         Form {
             Section {
                 Toggle("Enable DoubleTake", isOn: $state.settings.isEnabled)
-                Toggle("Launch at login", isOn: $state.launchAtLogin)
+                Toggle("Start at login", isOn: $state.launchAtLogin)
+            } footer: {
+                Text("DoubleTake runs in the background. Close this window and your shortcuts keep working; open DoubleTake from Applications (or run `doubletake open`) to get back here.")
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -101,6 +104,7 @@ struct GeneralView: View {
                     NSWorkspace.shared.activateFileViewerSelecting([AppState.configURL])
                 }
                 Button("Restore Default Shortcuts…", role: .destructive) { confirmRestore = true }
+                Button("Quit DoubleTake (stops all shortcuts)") { NSApp.terminate(nil) }
             }
         }
         .formStyle(.grouped)

@@ -106,7 +106,8 @@ say "Starting DoubleTake"
 open "$APP_DEST"
 cat <<MSG
 
-  DoubleTake lives in your menu bar (the tapping-hand icon).
+  DoubleTake runs quietly in the background (no menu bar or Dock icon).
+  Open it from Applications or with \`doubletake open\` to edit shortcuts.
   The first time, macOS asks you to allow it under
   System Settings › Privacy & Security › Accessibility. Switch it on and you're done.
 

@@ -1,6 +1,6 @@
 # DoubleTake
 
-Double-tap shortcuts for macOS, back again. DoubleTake is a small menu bar app that runs
+Double-tap shortcuts for macOS, back again. DoubleTake is a small background app that runs
 something when you **double- or triple-tap a key** (fn, ⌘, ⌥, ⌃, ⇧, Esc…) or **press keys
 together** (⌃⌥T, or two ordinary keys like J + K at the same moment).
 
@@ -11,7 +11,7 @@ together** (⌃⌥T, or two ordinary keys like J + K at the same moment).
   (Dictation, Siri, Spotlight, Mission Control, Show Desktop, Lock Screen, media keys, Dark Mode…).
 - **Give one action several triggers**, e.g. double-tap fn *or* ⌃⌥D.
 - **GUI for people, CLI for scripts and AI assistants.** Both edit the same config, and changes take effect immediately.
-- **Lightweight:** native Swift, no dependencies, no network access, nothing running in the background except one event listener.
+- **Stays out of the way:** no menu bar or Dock icon. Native Swift, no dependencies, no network access, just one quiet background listener.
 
 Requires macOS 15 or later (built for macOS 27).
 
@@ -46,7 +46,9 @@ No app can grant itself this permission, which is the point of it.
 
 ## Using the app
 
-Click the tapping-hand icon in the menu bar, then **Open DoubleTake…**.
+DoubleTake has no menu bar or Dock icon. It runs in the background, and its window opens when you launch it
+from Applications or Spotlight (or with `doubletake open`). Close the window and your shortcuts keep working.
+Turn on **Start at login** in General and it starts hidden each time you log in. To stop it, press ⌘Q in the window or run `doubletake quit`.
 
 - **+** adds a blank shortcut or one of the presets (Classic Dictation, Classic Siri, Popular).
 - In each shortcut, choose **Tap** or **Key Combo**, click **Record**, and press the keys.

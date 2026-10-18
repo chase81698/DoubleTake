@@ -37,7 +37,7 @@ enum Help {
       settings [--interval s] [--chord-window s] [--on|--off]
       status                                  is the app running and allowed to listen?
       export [file] | import <file|-> [--replace]
-      open | quit                             start or stop the menu bar app
+      open | quit                             open the editor window / stop the background app
       install-cli | uninstall-cli             add or remove /usr/local/bin/doubletake
       help --llm                              full reference for AI assistants
 
@@ -63,7 +63,7 @@ enum Help {
     static let llm = """
     # DoubleTake CLI reference (for AI assistants)
 
-    DoubleTake is a macOS menu bar app that runs actions when the user double-taps or
+    DoubleTake is a background macOS app (no menu bar or Dock icon) that runs actions when the user double-taps or
     triple-taps a key, or presses a key combination. The `doubletake` command edits its
     config; the running app reloads changes automatically, with no restart needed.
 
@@ -95,7 +95,8 @@ enum Help {
     doubletake status [--json]
     doubletake export [<file>]            prints JSON when no file is given
     doubletake import <file|-> [--replace]   merges by default; accepts a config object or an array of shortcuts
-    doubletake open | quit
+    doubletake open                       start the app if needed and show its editor window
+    doubletake quit                       stop the background app (shortcuts stop working)
 
     ## Trigger syntax
     Tap triggers (the key must be pressed and released on its own, quickly):

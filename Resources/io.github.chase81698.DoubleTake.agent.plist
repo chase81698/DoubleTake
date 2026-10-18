@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Login item registered by the app's "Start at login" switch (SMAppService.agent). -->
+<dict>
+	<key>Label</key>
+	<string>io.github.chase81698.DoubleTake.agent</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/DoubleTake</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>Contents/MacOS/DoubleTake</string>
+		<string>--background</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+</dict>
+</plist>

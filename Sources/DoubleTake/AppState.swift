@@ -18,7 +18,9 @@ final class AppState {
             save()
         }
     }
-    var launchAtLogin = SMAppService.mainApp.status == .enabled {
+    /// The login item starts the app with --background so its window stays closed.
+    @ObservationIgnored private let loginItem = SMAppService.agent(plistName: "io.github.chase81698.DoubleTake.agent.plist")
+    var launchAtLogin = SMAppService.agent(plistName: "io.github.chase81698.DoubleTake.agent.plist").status == .enabled {
         didSet { updateLoginItem() }
     }
     private(set) var isTrusted = false
@@ -135,14 +137,14 @@ final class AppState {
     private func updateLoginItem() {
         do {
             if launchAtLogin {
-                try SMAppService.mainApp.register()
+                try loginItem.register()
             } else {
-                try SMAppService.mainApp.unregister()
+                try loginItem.unregister()
             }
         } catch {
             NSSound.beep()
         }
-        let actual = SMAppService.mainApp.status == .enabled
+        let actual = loginItem.status == .enabled
         if actual != launchAtLogin { launchAtLogin = actual }
     }
 

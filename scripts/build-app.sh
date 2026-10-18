@@ -14,10 +14,11 @@ BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 APP=build/DoubleTake.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Library/LaunchAgents"
 cp "$BIN_DIR/DoubleTake" "$APP/Contents/MacOS/DoubleTake"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Resources/io.github.chase81698.DoubleTake.agent.plist "$APP/Contents/Library/LaunchAgents/"
 codesign --force --sign "${SIGN_IDENTITY:--}" "$APP"
 
 echo "Built $APP"

@@ -5,7 +5,7 @@ import DoubleTakeCore
 /// the running app notices and reloads within a moment.
 @MainActor
 enum CLI {
-    /// Whether this launch is a CLI invocation rather than the menu bar app starting.
+    /// Whether this launch is a CLI invocation rather than the app starting.
     static func shouldRun(_ arguments: [String]) -> Bool {
         let invokedAs = (arguments.first.map { ($0 as NSString).lastPathComponent }) ?? ""
         let args = userArguments(arguments)
@@ -19,7 +19,7 @@ enum CLI {
         var skipNext = false
         for arg in arguments.dropFirst() {
             if skipNext { skipNext = false; continue }
-            if arg.hasPrefix("-psn_") { continue }
+            if arg.hasPrefix("-psn_") || arg == Entry.backgroundFlag { continue }
             if arg.hasPrefix("-NS") || arg.hasPrefix("-Apple") { skipNext = true; continue }
             result.append(arg)
         }
@@ -101,10 +101,15 @@ enum CLI {
         case "import":
             try importConfig(args)
         case "open":
-            guard let app = Installer.appBundleURL ?? Installer.installedAppURL else {
-                throw CLIError("DoubleTake.app isn't installed. Run install.sh first.")
+            if NSRunningApplication.runningApplications(withBundleIdentifier: Installer.bundleID).isEmpty {
+                guard let app = Installer.appBundleURL ?? Installer.installedAppURL else {
+                    throw CLIError("DoubleTake.app isn't installed. Run install.sh first.")
+                }
+                NSWorkspace.shared.open(app)
+            } else {
+                DistributedNotificationCenter.default().postNotificationName(
+                    AppDelegate.showWindowNotification, object: nil, userInfo: nil, deliverImmediately: true)
             }
-            NSWorkspace.shared.open(app)
         case "quit":
             let running = NSRunningApplication.runningApplications(withBundleIdentifier: Installer.bundleID)
             running.forEach { $0.terminate() }
