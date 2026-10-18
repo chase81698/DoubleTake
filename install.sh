@@ -16,8 +16,18 @@ CLI_DEST="/usr/local/bin/doubletake"
 
 say() { printf '\033[1;34m==>\033[0m \033[1m%s\033[0m\n' "$*"; }
 die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
-# Runs a command, retrying with sudo if the user can't write there.
-as_admin() { "$@" 2>/dev/null || sudo "$@"; }
+# Runs a command, retrying as administrator if the user can't write there: sudo in a terminal,
+# the standard macOS password dialog when there is no terminal to type into.
+as_admin() {
+    "$@" 2>/dev/null && return 0
+    if sudo -n true 2>/dev/null || (: </dev/tty) 2>/dev/null; then
+        sudo "$@"
+    else
+        local cmd
+        cmd="$(printf '%q ' "$@" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+        osascript -e "do shell script \"$cmd\" with administrator privileges" >/dev/null
+    fi
+}
 
 quit_app() {
     pgrep -xq DoubleTake || return 0

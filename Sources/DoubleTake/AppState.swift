@@ -48,7 +48,8 @@ final class AppState {
         }
         applySettings()
         engine.shortcuts = shortcuts
-        checkPermission(prompt: false)
+        // Shows macOS's own "allow Accessibility" prompt when needed, and lists the app in Settings.
+        checkPermission(prompt: true)
         needsAttention = needsAttention || !isTrusted
         watchConfig()
         writeStatus()
