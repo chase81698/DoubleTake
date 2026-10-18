@@ -48,7 +48,7 @@ No app can grant itself this permission, which is the point of it.
 
 DoubleTake has no menu bar or Dock icon. It runs in the background, and its window opens when you launch it
 from Applications or Spotlight (or with `doubletake open`). Close the window and your shortcuts keep working.
-Turn on **Start at login** in General and it starts hidden each time you log in. To stop it, press ⌘Q in the window or run `doubletake quit`.
+It also starts hidden each time you log in. You can switch that off with **Start at login** in General. To stop it, press ⌘Q in the window or run `doubletake quit`.
 
 - **+** adds a blank shortcut or one of the presets (Classic Dictation, Classic Siri, Popular).
 - In each shortcut, choose **Tap** or **Key Combo**, click **Record**, and press the keys.

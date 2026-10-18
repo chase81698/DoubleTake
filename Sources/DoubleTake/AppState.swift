@@ -55,6 +55,7 @@ final class AppState {
         needsAttention = needsAttention || !isTrusted
         watchConfig()
         writeStatus()
+        enableLoginItemOnFirstRun()
     }
 
     // MARK: - Permission
@@ -132,6 +133,15 @@ final class AppState {
         engine.doubleTapInterval = settings.doubleTapInterval
         engine.chordWindow = settings.chordWindow
         tap.isEnabled = settings.isEnabled
+    }
+
+    /// Start at login is on by default: it's switched on once, the first time the app runs from
+    /// Applications. After that it stays however the user leaves it.
+    private func enableLoginItemOnFirstRun() {
+        let key = "startAtLoginDefaultApplied"
+        guard Installer.isInApplications, !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        if !launchAtLogin { launchAtLogin = true }
     }
 
     private func updateLoginItem() {

@@ -41,6 +41,7 @@ cdhash() { codesign -dvvv "$1" 2>&1 | sed -n 's/^CDHash=//p'; }
 if [[ "${1:-}" == "--uninstall" ]]; then
     say "Removing DoubleTake"
     quit_app
+    launchctl bootout "gui/$(id -u)/$BUNDLE_ID.agent" >/dev/null 2>&1 || true
     [[ -e "$APP_DEST" ]] && as_admin rm -rf "$APP_DEST"
     [[ -L "$CLI_DEST" || -e "$CLI_DEST" ]] && as_admin rm -f "$CLI_DEST"
     tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
@@ -106,7 +107,7 @@ say "Starting DoubleTake"
 open "$APP_DEST"
 cat <<MSG
 
-  DoubleTake runs quietly in the background (no menu bar or Dock icon).
+  DoubleTake runs quietly in the background (no menu bar or Dock icon) and starts at login.
   Open it from Applications or with \`doubletake open\` to edit shortcuts.
   The first time, macOS asks you to allow it under
   System Settings › Privacy & Security › Accessibility. Switch it on and you're done.
