@@ -125,7 +125,9 @@ enum CLI {
     }
 
     static var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        // Read the plist directly: Bundle.main doesn't find it when run through the /usr/local/bin symlink.
+        let plist = Installer.appBundleURL?.appendingPathComponent("Contents/Info.plist")
+        return plist.flatMap { NSDictionary(contentsOf: $0)?["CFBundleShortVersionString"] as? String } ?? "dev"
     }
 
     // MARK: - Commands

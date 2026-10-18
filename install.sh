@@ -91,9 +91,12 @@ as_admin ditto "$NEW_APP" "$APP_DEST"
 xattr -dr com.apple.quarantine "$APP_DEST" 2>/dev/null || true
 [[ -n "${RESET_PERMISSION:-}" ]] && tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
 
-say "Linking the command line tool to $CLI_DEST"
-as_admin mkdir -p "$(dirname "$CLI_DEST")"
-as_admin ln -sf "$APP_DEST/Contents/MacOS/DoubleTake" "$CLI_DEST"
+CLI_TARGET="$APP_DEST/Contents/MacOS/DoubleTake"
+if [[ "$(readlink "$CLI_DEST" 2>/dev/null)" != "$CLI_TARGET" ]]; then
+    say "Linking the command line tool to $CLI_DEST"
+    as_admin mkdir -p "$(dirname "$CLI_DEST")"
+    as_admin ln -sf "$CLI_TARGET" "$CLI_DEST"
+fi
 case ":$PATH:" in
     *":$(dirname "$CLI_DEST"):"*) ;;
     *) echo "   Add /usr/local/bin to your PATH to use \`doubletake\` from any shell." ;;
