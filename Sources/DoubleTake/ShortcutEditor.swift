@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct ShortcutEditor: View {
     @Environment(AppState.self) private var state
     @Binding var shortcut: Shortcut
+    let onDelete: () -> Void
     @State private var testResult: (ok: Bool, message: String)?
 
     var body: some View {
@@ -49,6 +50,10 @@ struct ShortcutEditor: View {
                             .textSelection(.enabled)
                     }
                 }
+            }
+
+            Section {
+                Button("Delete Shortcut", role: .destructive, action: onDelete)
             }
         }
         .formStyle(.grouped)

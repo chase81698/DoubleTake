@@ -28,7 +28,10 @@ struct MainView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 230, ideal: 260)
-            .safeAreaInset(edge: .bottom) { bottomBar }
+            .safeAreaInset(edge: .top) { addButton }
+            .onDeleteCommand {
+                if case .shortcut(let id) = selection { delete(id) }
+            }
         } detail: {
             VStack(spacing: 0) {
                 if !state.isTrusted {
@@ -48,45 +51,37 @@ struct MainView: View {
             ShortcutEditor(shortcut: Binding(
                 get: { state.shortcut(withID: id) ?? Shortcut(name: "", triggers: [], action: Action()) },
                 set: { state.update($0) }
-            ))
+            ), onDelete: { delete(id) })
             .id(id)
         default:
             GeneralView()
         }
     }
 
-    private var bottomBar: some View {
-        HStack(spacing: 4) {
-            Menu {
-                Button("New Shortcut") {
-                    add(Shortcut(name: "New Shortcut", triggers: [Trigger()], action: Action()))
-                }
-                ForEach(Presets.groups) { group in
-                    Section(group.title) {
-                        ForEach(group.presets) { preset in
-                            Button(preset.title) { add(preset.make()) }
-                        }
+    private var addButton: some View {
+        Menu {
+            Button("Blank Shortcut") {
+                add(Shortcut(name: "New Shortcut", triggers: [Trigger()], action: Action()))
+            }
+            ForEach(Presets.groups) { group in
+                Section(group.title) {
+                    ForEach(group.presets) { preset in
+                        Button(preset.title) { add(preset.make()) }
                     }
                 }
-            } label: {
-                Image(systemName: "plus")
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("Add a shortcut")
-
-            Button {
-                if case .shortcut(let id) = selection { delete(id) }
-            } label: {
-                Image(systemName: "minus")
-            }
-            .buttonStyle(.borderless)
-            .disabled({ if case .shortcut = selection { return false } else { return true } }())
-            .help("Delete the selected shortcut")
-            Spacer()
+        } label: {
+            Label("New Shortcut", systemImage: "plus.circle.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
         }
-        .padding(8)
+        .menuStyle(.button)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.extraLarge)
+        .help("Add a blank shortcut or start from a preset")
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
     }
 
     private func add(_ shortcut: Shortcut) {
