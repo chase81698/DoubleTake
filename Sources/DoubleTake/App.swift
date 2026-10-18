@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
+        AdminScripts.canPromptForApproval = true
         if !launchedInBackground, Installer.offerMoveIfNeeded() { return }
 
         let state = AppState()

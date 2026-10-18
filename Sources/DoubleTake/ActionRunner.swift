@@ -7,13 +7,21 @@ private let log = Logger(subsystem: "io.github.chase81698.DoubleTake", category:
 /// Performs a shortcut's action.
 @MainActor
 enum ActionRunner {
-    /// Runs `action`. `completion` receives nil on success or an error message.
-    static func run(_ action: Action, completion: ((String?) -> Void)? = nil) {
+    /// Runs a shortcut's action. `completion` receives nil on success or an error message.
+    static func run(_ shortcut: Shortcut, completion: ((String?) -> Void)? = nil) {
         let done = completion ?? { error in
             guard let error else { return }
-            log.error("Action failed: \(error, privacy: .public)")
+            log.error("“\(shortcut.name, privacy: .public)” failed: \(error, privacy: .public)")
             NSSound.beep()
         }
+        let action = shortcut.action
+        if action.type == .shellScript, action.runAsAdmin {
+            return AdminScripts.run(id: shortcut.id, name: shortcut.name, script: action.script, done)
+        }
+        run(action, done)
+    }
+
+    private static func run(_ action: Action, _ done: @escaping (String?) -> Void) {
         switch action.type {
         case .system:
             runSystem(action.system, done)
@@ -133,7 +141,7 @@ enum ActionRunner {
         done(NSWorkspace.shared.open(url) ? nil : "Couldn't open \(t).")
     }
 
-    private static func runProcess(_ path: String, _ arguments: [String], _ done: @escaping (String?) -> Void) {
+    static func runProcess(_ path: String, _ arguments: [String], _ done: @escaping (String?) -> Void) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments

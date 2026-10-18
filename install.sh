@@ -44,6 +44,10 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     launchctl bootout "gui/$(id -u)/$BUNDLE_ID.agent" >/dev/null 2>&1 || true
     [[ -e "$APP_DEST" ]] && as_admin rm -rf "$APP_DEST"
     [[ -L "$CLI_DEST" || -e "$CLI_DEST" ]] && as_admin rm -f "$CLI_DEST"
+    # Administrator approvals: root-owned scripts and their sudoers rule.
+    if [[ -e "/Library/Application Support/DoubleTake" ]] || ls /private/etc/sudoers.d/doubletake-* >/dev/null 2>&1; then
+        as_admin sh -c 'rm -f /private/etc/sudoers.d/doubletake-*; rm -rf "/Library/Application Support/DoubleTake"'
+    fi
     tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
     say "Done. Your shortcuts are kept in ~/Library/Application Support/DoubleTake (delete it to start fresh)."
     exit 0

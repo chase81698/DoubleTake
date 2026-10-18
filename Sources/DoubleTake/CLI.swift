@@ -76,7 +76,7 @@ enum CLI {
         case "run":
             let config = try loadConfig()
             let s = config.shortcuts[try find(args.positional.first, in: config)]
-            try runAction(s.action)
+            try runAction(s)
             print("Ran “\(s.name)”.")
         case "presets":
             try presets(args)
@@ -114,6 +114,21 @@ enum CLI {
             let running = NSRunningApplication.runningApplications(withBundleIdentifier: Installer.bundleID)
             running.forEach { $0.terminate() }
             print(running.isEmpty ? "DoubleTake isn't running." : "Quit DoubleTake.")
+        case "approve":
+            let admin = AdminScripts.adminShortcuts(in: try loadConfig().shortcuts)
+            guard !admin.isEmpty else {
+                return print("No shortcuts run as administrator. Add --admin to a --shell shortcut first.")
+            }
+            for s in admin {
+                print("── \(s.name) (\(s.shortID))\(AdminScripts.isApproved(id: s.id, script: s.action.script) ? " [already approved]" : "")")
+                print(s.action.script)
+            }
+            print("\nAsking for your password (in a macOS dialog) to approve \(admin.count == 1 ? "this script" : "these scripts")…")
+            try AdminScripts.approveAll()
+            print("Approved. \(admin.count == 1 ? "It runs" : "They run") as root without asking again until edited.")
+        case "revoke-admin":
+            try AdminScripts.revokeAll()
+            print("Removed all administrator approvals.")
         case "install-cli":
             try Installer.installCLI()
             print("Installed \(Installer.cliPath).")
@@ -158,14 +173,19 @@ enum CLI {
             throw CLIError("Give an action, e.g. --system dictation, --app Safari, --shell 'say hi'. See `doubletake actions`.")
         }
         let disabled = args.flag("disabled")
+        let admin = args.flag("admin")
         try mutate { config in
             guard config.index(of: name) == nil || args.flag("allow-duplicate") else {
                 throw CLIError("A shortcut named “\(name)” already exists. Use `doubletake edit` or pick another name.")
             }
-            let s = Shortcut(name: name, enabled: !disabled, triggers: triggers, action: action)
+            var s = Shortcut(name: name, enabled: !disabled, triggers: triggers, action: action)
+            if admin {
+                guard action.type == .shellScript else { throw CLIError("--admin only applies to --shell actions.") }
+                s.action.runAsAdmin = true
+            }
             config.shortcuts.append(s)
             return "Added “\(name)” (\(s.shortID)): \(triggers.map(Spec.format).joined(separator: ", ")) → \(action.summary)"
-                + conflictNote(s, in: config)
+                + conflictNote(s, in: config) + adminNote(s)
         }
     }
 
@@ -176,18 +196,28 @@ enum CLI {
         let newName = args.value("name")
         let enable = args.flag("enable")
         let disable = args.flag("disable")
+        let admin = args.flag("admin"), notAdmin = args.flag("no-admin")
         try mutate { config in
             let i = try find(args.positional.first, in: config)
             var s = config.shortcuts[i]
             if let newName { s.name = newName }
             if !newTriggers.isEmpty { s.triggers = newTriggers }
             s.triggers += addedTriggers
-            if let action { s.action = action }
+            if let action {
+                let wasAdmin = s.action.runAsAdmin
+                s.action = action
+                s.action.runAsAdmin = wasAdmin && action.type == .shellScript
+            }
+            if admin {
+                guard s.action.type == .shellScript else { throw CLIError("--admin only applies to --shell actions.") }
+                s.action.runAsAdmin = true
+            }
+            if notAdmin { s.action.runAsAdmin = false }
             if enable { s.enabled = true }
             if disable { s.enabled = false }
             config.shortcuts[i] = s
             return "Updated “\(s.name)”: \(s.triggers.map(Spec.format).joined(separator: ", ")) → \(s.action.summary)"
-                + conflictNote(s, in: config)
+                + conflictNote(s, in: config) + adminNote(s)
         }
     }
 
@@ -291,9 +321,10 @@ enum CLI {
             "app": (running?.bundleURL ?? Installer.installedAppURL)?.path ?? "not installed",
             "config": ConfigFile.url.path,
             "cli": FileManager.default.fileExists(atPath: Installer.cliPath) ? Installer.cliPath : "not installed",
+            "adminScriptsApproved": "\(AdminScripts.approvedCount())",
         ]
         if args.flag("json") { return try printJSON(info) }
-        for key in ["version", "appRunning", "accessibilityGranted", "listening", "enabled", "shortcuts", "app", "config", "cli"] {
+        for key in ["version", "appRunning", "accessibilityGranted", "listening", "enabled", "shortcuts", "adminScriptsApproved", "app", "config", "cli"] {
             print("\(key):".padding(toLength: 22, withPad: " ", startingAt: 0) + info[key]!)
         }
         if running == nil { print("\nStart the app with `doubletake open`; shortcuts only work while it runs.") }
@@ -412,9 +443,9 @@ enum CLI {
         return nil
     }
 
-    private static func runAction(_ action: Action) throws {
+    private static func runAction(_ shortcut: Shortcut) throws {
         var result: String??
-        ActionRunner.run(action) { result = .some($0) }
+        ActionRunner.run(shortcut) { result = .some($0) }
         let deadline = Date().addingTimeInterval(60)
         while result == nil, Date() < deadline {
             RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
@@ -456,6 +487,11 @@ enum CLI {
         return clashes.isEmpty ? "" : "\nwarning: shares a trigger with \(clashes.map { "“\($0.name)”" }.joined(separator: ", ")); only one will run."
     }
 
+    private static func adminNote(_ s: Shortcut) -> String {
+        guard s.action.runAsAdmin, !AdminScripts.isApproved(id: s.id, script: s.action.script) else { return "" }
+        return "\nnote: runs as administrator; it needs approval once. Run `doubletake approve` (the user enters their password)."
+    }
+
     private static func printDetail(_ s: Shortcut) {
         print("name:     \(s.name)")
         print("id:       \(s.id.uuidString.lowercased())")
@@ -463,7 +499,11 @@ enum CLI {
         print("triggers: \(s.triggers.map(Spec.format).joined(separator: ", "))")
         print("action:   \(s.action.summary)")
         switch s.action.type {
-        case .shellScript, .appleScript: print("script:\n\(s.action.script)")
+        case .shellScript, .appleScript:
+            if s.action.runAsAdmin {
+                print("admin:    yes, \(AdminScripts.isApproved(id: s.id, script: s.action.script) ? "approved" : "NOT approved (run `doubletake approve`)")")
+            }
+            print("script:\n\(s.action.script)")
         case .openApp: print("app:      \(s.action.target)\(s.action.toggleApp ? " (toggle)" : "")")
         case .keystroke: print("keys:     \(s.action.keystroke.map(Spec.format) ?? "-")")
         default: break
@@ -495,6 +535,7 @@ final class Arguments {
 
     private static let flagNames: Set<String> = [
         "json", "llm", "disabled", "enable", "disable", "toggle", "replace", "on", "off", "allow-duplicate",
+        "admin", "no-admin",
     ]
 
     init(_ args: [String]) {

@@ -35,11 +35,11 @@ struct ShortcutEditor: View {
             }
 
             Section("Action") {
-                ActionEditor(action: $shortcut.action)
+                ActionEditor(action: $shortcut.action, shortcutID: shortcut.id)
                 HStack {
                     Button("Test Action") {
                         testResult = nil
-                        ActionRunner.run(shortcut.action) { error in
+                        ActionRunner.run(shortcut) { error in
                             testResult = error.map { (false, $0) } ?? (true, "Ran successfully.")
                         }
                     }
@@ -198,6 +198,7 @@ struct RecorderButton: View {
 
 struct ActionEditor: View {
     @Binding var action: Action
+    let shortcutID: UUID
     @State private var keystrokeRecorderID = UUID()
     @State private var availableShortcuts: [String] = []
 
@@ -241,6 +242,10 @@ struct ActionEditor: View {
 
         case .shellScript:
             scriptEditor(placeholder: "Runs in zsh as a login shell, so your usual PATH and tools are available.")
+            Toggle("Run as administrator", isOn: $action.runAsAdmin)
+            if action.runAsAdmin {
+                AdminApprovalRow(id: shortcutID, script: action.script)
+            }
 
         case .appleScript:
             scriptEditor(placeholder: "Example: tell application \"Music\" to playpause")
@@ -323,5 +328,44 @@ struct ActionEditor: View {
                 .map(String.init)
                 .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         }.value
+    }
+}
+
+/// Shows whether a "Run as administrator" script is approved, and approves it.
+struct AdminApprovalRow: View {
+    let id: UUID
+    let script: String
+    @State private var refresh = 0
+    @State private var error: String?
+
+    var body: some View {
+        let _ = refresh
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                if AdminScripts.isApproved(id: id, script: script) {
+                    Label("Approved: runs as root without asking for your password", systemImage: "checkmark.shield.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Label("Needs your password once (and again after any edit)", systemImage: "lock.shield")
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button("Approve…") {
+                        do {
+                            try AdminScripts.approveAll()
+                            error = nil
+                        } catch {
+                            self.error = error.localizedDescription
+                        }
+                        refresh += 1
+                    }
+                }
+            }
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.orange)
+            }
+            Text("Approving installs a root-owned copy of this exact script and lets only that file run with sudo, so nothing else can change what runs as root. Only approve scripts you trust.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }

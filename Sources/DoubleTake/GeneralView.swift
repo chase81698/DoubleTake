@@ -5,6 +5,7 @@ struct GeneralView: View {
     @State private var confirmRestore = false
     @State private var cliInstalled = Installer.isCLIInstalled
     @State private var cliError: String?
+    @State private var approvedScripts = AdminScripts.approvedCount()
 
     var body: some View {
         @Bindable var state = state
@@ -88,6 +89,18 @@ struct GeneralView: View {
                             .foregroundStyle(.green)
                     } else {
                         Button("Grant Access…") { state.requestPermission() }
+                    }
+                }
+                LabeledContent("Administrator scripts") {
+                    HStack {
+                        Text(approvedScripts == 0 ? "None approved" : "\(approvedScripts) approved")
+                            .foregroundStyle(.secondary)
+                        if approvedScripts > 0 {
+                            Button("Revoke All…") {
+                                try? AdminScripts.revokeAll()
+                                approvedScripts = AdminScripts.approvedCount()
+                            }
+                        }
                     }
                 }
                 LabeledContent("Last triggered") {

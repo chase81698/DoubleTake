@@ -45,7 +45,7 @@ final class AppState {
             // Leave the event tap callback before doing any real work.
             DispatchQueue.main.async {
                 self?.lastFired = (shortcut.name, Date())
-                ActionRunner.run(shortcut.action)
+                ActionRunner.run(shortcut)
             }
         }
         applySettings()

@@ -55,6 +55,11 @@ It also starts hidden each time you log in. You can switch that off with **Start
 - Choose an action and click **Test Action** to try it.
 - **General** has the double-tap speed, the simultaneous-key window, launch at login, and the CLI installer.
 
+**Run as administrator:** shell scripts can run as root. Switch on **Run as administrator** and enter your password
+**once**. After that the script runs without asking again. DoubleTake installs a root-owned copy of that exact script and
+adds a sudo rule that covers only that file, so nothing else on your account can change what runs as root. If you edit the
+script, it asks for your password again. General shows how many scripts are approved and has a **Revoke All** button.
+
 How triggers behave:
 
 | Trigger | Example | Notes |
@@ -73,6 +78,8 @@ doubletake add "Dictation" --trigger double:fn --system dictation
 doubletake add "Terminal"  --trigger ctrl+opt+t --app Terminal --toggle
 doubletake add "Notes"     --trigger j+k --shell 'open -a Notes'
 doubletake add "New tab"   --trigger triple:opt --keystroke cmd+t
+doubletake add "Flush DNS" --trigger double:right-ctrl --shell 'dscacheutil -flushcache; killall -HUP mDNSResponder' --admin
+doubletake approve         # one password dialog, then admin scripts run without asking
 doubletake edit Terminal --add-trigger double:right-opt
 doubletake disable Notes
 doubletake run Terminal

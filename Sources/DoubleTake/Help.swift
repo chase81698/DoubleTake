@@ -26,7 +26,7 @@ enum Help {
       --system <name>        built-in: dictation, siri, spotlight, missionControl… (see `actions`)
       --app <name|path>      open an app; add --toggle to hide it if it's already in front
       --url <url|path>       open a URL, file or folder
-      --shell <script>       run a zsh script
+      --shell <script>       run a zsh script; add --admin to run it as root (approve once, no password after)
       --applescript <src>    run AppleScript
       --shortcut <name>      run a Shortcuts-app shortcut
       --keystroke <keys>     send a keystroke, e.g. cmd+shift+t
@@ -38,6 +38,7 @@ enum Help {
       status                                  is the app running and allowed to listen?
       export [file] | import <file|-> [--replace]
       open | quit                             open the editor window / stop the background app
+      approve | revoke-admin                  approve --admin scripts once (password dialog) / remove approvals
       install-cli | uninstall-cli             add or remove /usr/local/bin/doubletake
       help --llm                              full reference for AI assistants
 
@@ -81,12 +82,22 @@ enum Help {
     doubletake list [--json]
     doubletake show <name|id> [--json]
     doubletake add <name> --trigger <trigger> [--trigger <trigger>...] <action> [--disabled]
-    doubletake edit <name|id> [--name <new>] [--trigger <t>...] [--add-trigger <t>...] [<action>] [--enable|--disable]
+    doubletake edit <name|id> [--name <new>] [--trigger <t>...] [--add-trigger <t>...] [<action>] [--enable|--disable] [--admin|--no-admin]
         --trigger replaces all triggers; --add-trigger appends.
+
+    ## Running as administrator (root)
+    Add --admin to a --shell shortcut to run the whole script as root. Never wrap commands in sudo or
+    `osascript ... with administrator privileges` yourself, because that asks for a password on every run.
+    The user approves the script once (`doubletake approve` shows a password dialog that they answer). After that it
+    runs without a password until the script text changes, which makes it unapproved again. The script runs as
+    root with root's environment; $SUDO_USER is the user's name. To show a notification from a root script, use:
+      launchctl asuser "$(id -u "$SUDO_USER")" sudo -u "$SUDO_USER" osascript -e 'display notification "Done" with title "DoubleTake"'
     doubletake remove <name|id>
     doubletake enable <name|id>
     doubletake disable <name|id>
     doubletake run <name|id>              performs the action now; non-zero exit with the error if it fails
+    doubletake approve                    approve all --admin scripts (shows a macOS password dialog to the user)
+    doubletake revoke-admin               remove every administrator approval
     doubletake presets [--json]
     doubletake add-preset <number> [--disabled]
     doubletake actions [--json]           built-in action names for --system
@@ -139,7 +150,7 @@ enum Help {
     Missing fields take defaults. Trigger fields: kind ("tap"|"combo"), keyCode, eitherSide, tapCount,
     modifiers (bitmask: fn=1 ctrl=2 opt=4 shift=8 cmd=16), keys (key codes).
     Action fields: type (system|openApp|openURL|shellScript|appleScript|runShortcut|keystroke|menuItem),
-    system, target, script, keystroke {modifiers, keyCode}, toggleApp.
+    system, target, script, keystroke {modifiers, keyCode}, toggleApp, runAsAdmin.
     """
 }
 

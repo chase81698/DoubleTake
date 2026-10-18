@@ -167,6 +167,9 @@ public struct Action: Codable, Hashable, Sendable {
     public var keystroke: Keystroke?
     /// For `.openApp`: hide the app instead if it is already frontmost.
     public var toggleApp = false
+    /// For `.shellScript`: run as root. The user approves the script once and it then runs
+    /// without a password until its text changes.
+    public var runAsAdmin = false
 
     public init() {}
 
@@ -178,6 +181,7 @@ public struct Action: Codable, Hashable, Sendable {
         script = try c.decodeIfPresent(String.self, forKey: .script) ?? ""
         keystroke = try c.decodeIfPresent(Keystroke.self, forKey: .keystroke)
         toggleApp = try c.decodeIfPresent(Bool.self, forKey: .toggleApp) ?? false
+        runAsAdmin = try c.decodeIfPresent(Bool.self, forKey: .runAsAdmin) ?? false
     }
 
     public static func system(_ s: SystemAction) -> Action {
