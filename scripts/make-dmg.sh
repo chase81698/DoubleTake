@@ -21,6 +21,11 @@ cp Resources/dmg-background.tiff "$WORK/stage/.background/background.tiff"
 
 hdiutil create -quiet -volname "$VOLUME" -srcfolder "$WORK/stage" -fs HFS+ -format UDRW -ov "$WORK/rw.dmg"
 hdiutil attach -quiet -noautoopen "$WORK/rw.dmg"
+# Finder can take a moment to notice a newly mounted disk.
+for _ in {1..20}; do
+    osascript -e "tell application \"Finder\" to get disk \"$VOLUME\"" >/dev/null 2>&1 && break
+    sleep 0.5
+done
 
 # Icon positions match the arrow in Resources/dmg-background.tiff (scripts/make-dmg-background.swift).
 osascript <<OSA
