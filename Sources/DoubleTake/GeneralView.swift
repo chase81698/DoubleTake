@@ -159,10 +159,10 @@ struct GeneralView: View {
             Label("Up to date", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case .downloading(let version):
             ProgressView().controlSize(.small)
-            Text("Downloading \(version)…").foregroundStyle(.secondary)
+            Text("Downloading \(version.description)…").foregroundStyle(.secondary)
         case .installing(let version):
             ProgressView().controlSize(.small)
-            Text("Installing \(version)…").foregroundStyle(.secondary)
+            Text("Installing \(version.description)…").foregroundStyle(.secondary)
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)

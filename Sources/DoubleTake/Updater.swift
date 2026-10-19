@@ -4,17 +4,22 @@ import Observation
 
 /// Updates DoubleTake from its GitHub releases. Checking for updates is the only time DoubleTake
 /// connects to the internet: it asks GitHub for the latest release and, if that's newer,
-/// downloads the release's DoubleTake.zip (the same file install.sh uses).
+/// downloads the release's DoubleTake.zip (the same file install.sh uses) and its signature.
+/// Nothing is installed unless the signature proves the zip came from the maintainer's release key.
 @MainActor
 enum Updater {
     static let repo = "chase81698/DoubleTake"
 
-    /// Set DOUBLETAKE_UPDATE_URL to read releases from somewhere else (handy for testing).
+    #if DEBUG
+    /// Debug builds can read releases from somewhere else via DOUBLETAKE_UPDATE_URL, to test the updater.
+    /// Release builds always ask GitHub.
+    private static let testFeed = ProcessInfo.processInfo.environment["DOUBLETAKE_UPDATE_URL"].flatMap(URL.init(string:))
+    #else
+    private static let testFeed: URL? = nil
+    #endif
+
     static var latestReleaseURL: URL {
-        if let custom = ProcessInfo.processInfo.environment["DOUBLETAKE_UPDATE_URL"], let url = URL(string: custom) {
-            return url
-        }
-        return URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
+        testFeed ?? URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
     }
 
     static var currentVersion: AppVersion? { AppVersion(CLI.version) }
@@ -45,11 +50,17 @@ enum Updater {
         }
     }
 
-    /// Downloads and unpacks a release, checking it's a newer, intact DoubleTake.
-    /// Returns the unpacked DoubleTake.app in a temporary folder.
+    /// Downloads and unpacks a release, checking it's signed with the release key and is a newer,
+    /// intact DoubleTake. Returns the unpacked DoubleTake.app in a temporary folder.
     static func download(_ release: Release) async throws -> URL {
         guard let archive = release.archive else {
             throw UpdateError("The \(release.tag) release on GitHub has no \(Release.archiveName) to install.")
+        }
+        guard let signature = release.signature else {
+            throw UpdateError("The \(release.tag) release on GitHub isn't signed, so it wasn't installed.")
+        }
+        guard testFeed != nil || [archive, signature].allSatisfy({ Release.isTrustedDownload($0.downloadURL, repo: repo) }) else {
+            throw UpdateError("The \(release.tag) release points somewhere other than DoubleTake's GitHub releases, so it wasn't installed.")
         }
         let work = FileManager.default.temporaryDirectory
             .appendingPathComponent("DoubleTake-Update-\(UUID().uuidString)", isDirectory: true)
@@ -61,6 +72,11 @@ enum Updater {
             }
             let zip = work.appendingPathComponent(Release.archiveName)
             try FileManager.default.moveItem(at: file, to: zip)
+            let (signatureData, signatureResponse) = try await fetch { try await URLSession.shared.data(from: signature.downloadURL) }
+            guard (signatureResponse as? HTTPURLResponse)?.statusCode == 200,
+                  UpdateSignature.isValid(String(decoding: signatureData, as: UTF8.self), for: try Data(contentsOf: zip)) else {
+                throw UpdateError("The download isn't signed with DoubleTake's release key, so it wasn't installed.")
+            }
             try shell("/usr/bin/ditto", "-x", "-k", zip.path, work.path)
 
             let app = work.appendingPathComponent("DoubleTake.app")

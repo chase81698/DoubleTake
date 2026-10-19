@@ -148,7 +148,7 @@ struct PermissionBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("DoubleTake needs Accessibility access")
                     .font(.headline)
-                Text("Turn on DoubleTake in System Settings › Privacy & Security › Accessibility so it can see your key presses. It starts working the moment you do.")
+                Text("Turn on DoubleTake in System Settings › Privacy & Security › Accessibility. It needs this to catch your shortcuts before other apps see them, and to send keystrokes for you. It starts working the moment you do.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

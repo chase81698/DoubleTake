@@ -53,9 +53,20 @@ If you run the app from somewhere else (for example, Downloads), it offers to mo
 
 ### The one manual step: Accessibility access
 
-To see key presses, macOS requires you to approve DoubleTake once in **System Settings › Privacy & Security ›
-Accessibility**. The app opens that page for you, and starts working as soon as you switch it on.
+macOS requires you to approve DoubleTake once in **System Settings › Privacy & Security › Accessibility**.
+The app opens that page for you, and starts working as soon as you switch it on.
 No app can grant itself this permission, which is the point of it.
+
+**Why Accessibility, and not the narrower Input Monitoring?** Input Monitoring only lets an app *watch* keys.
+DoubleTake also has to **block** them (so ⌃⌥T doesn't also type a T in the front app, and a double-tapped Esc
+doesn't send a second Esc), **hold them back** for a split second (J + K style combos), **send** keystrokes and
+media keys for you, and **click menu items** in other apps. macOS only allows those with Accessibility, and
+Accessibility already includes watching, so DoubleTake asks for nothing else.
+
+Other prompts appear only when you use the feature that needs them: macOS asks once per app the first time an
+action controls another app (Automation, e.g. Toggle Dark Mode or your own AppleScript), and "Run as administrator"
+asks for your password once per script. DoubleTake never asks for Full Disk Access, Screen Recording, the
+microphone, the camera or your location.
 
 ## Using the app
 
@@ -92,6 +103,13 @@ Because DoubleTake isn't signed by Apple, macOS asks you to switch Accessibility
 
 **Check for updates when DoubleTake opens** does the same check each time the app starts and asks before installing.
 It's **off by default**.
+
+**Every update is verified before it's installed.** Each release's `DoubleTake.zip` is signed with a private
+release key that never leaves the maintainer's Mac, and the signature is published next to it as
+`DoubleTake.zip.sig`. DoubleTake carries the matching public key and installs nothing unless the signature checks
+out, so even someone who got into the GitHub repo couldn't push an update. It also only downloads over HTTPS from
+this repository's own GitHub releases, refuses anything that isn't DoubleTake or isn't newer than the copy you have,
+and checks the app's code signature is intact before swapping it in.
 
 **Checking for updates is the only time DoubleTake connects to the internet.** It sends one request to GitHub
 (`api.github.com`) for the latest release and, if there's a newer one, downloads its `DoubleTake.zip` from GitHub. DoubleTake
@@ -135,8 +153,15 @@ built-in list.
 ```bash
 swift test                 # engine tests
 scripts/build-app.sh       # → build/DoubleTake.app (ad-hoc signed; set SIGN_IDENTITY to use your certificate)
-scripts/package-release.sh # → dist/DoubleTake.dmg + dist/DoubleTake.zip (universal), for a GitHub release
+scripts/package-release.sh # → dist/DoubleTake.dmg, DoubleTake.zip and DoubleTake.zip.sig (universal), for a GitHub release
 ```
+
+**Release signing:** `package-release.sh` signs `DoubleTake.zip` with the release key from your Keychain
+(`scripts/sign-release.swift`), and the in-app updater won't install a release without that `.sig` file. The key is
+made once with `swift scripts/sign-release.swift --generate`, which also writes its public half into
+`Sources/DoubleTakeCore/UpdateSignature.swift`. Back up the Keychain item "DoubleTake release signing key": if it's
+lost, installed copies can't verify new releases and have to be reinstalled from the DMG with a new key.
+Debug builds (only) read releases from `DOUBLETAKE_UPDATE_URL` instead of GitHub, for testing the updater.
 
 `scripts/make-dmg.sh` lays out the drag-to-Applications window with Finder, so run it from a logged-in session.
 `swift scripts/make-dmg-background.swift` redraws its background picture.

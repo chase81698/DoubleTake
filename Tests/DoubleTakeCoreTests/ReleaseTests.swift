@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import DoubleTakeCore
@@ -44,5 +45,62 @@ import Testing
         let settings = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"isEnabled": true}"#.utf8))
         #expect(settings.checkForUpdatesOnLaunch == false)
         #expect(AppSettings().checkForUpdatesOnLaunch == false)
+    }
+}
+
+@Suite struct UpdateSecurityTests {
+    let repo = "chase81698/DoubleTake"
+
+    @Test(arguments: [
+        "https://github.com/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://GitHub.com/Chase81698/doubletake/releases/download/v2/DoubleTake.zip.sig",
+    ])
+    func trustsThisRepositorysReleases(_ url: String) throws {
+        #expect(Release.isTrustedDownload(try #require(URL(string: url)), repo: repo))
+    }
+
+    @Test(arguments: [
+        "http://github.com/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://github.com.evil.example/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://evil.example/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://github.com/someone-else/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://github.com/chase81698/DoubleTake-fork/releases/download/v1.1.0/DoubleTake.zip",
+        "https://github.com/chase81698/DoubleTake/raw/main/DoubleTake.zip",
+        "https://user@github.com/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "https://github.com:8443/chase81698/DoubleTake/releases/download/v1.1.0/DoubleTake.zip",
+        "http://127.0.0.1:8765/DoubleTake.zip",
+        "https://github.com/chase81698/DoubleTake/releases/download/../../../someone-else/x/releases/download/v1/DoubleTake.zip",
+    ])
+    func rejectsEverythingElse(_ url: String) throws {
+        #expect(!Release.isTrustedDownload(try #require(URL(string: url)), repo: repo))
+    }
+
+    @Test func checksSignatures() {
+        let key = Curve25519.Signing.PrivateKey()
+        let publicKey = key.publicKey.rawRepresentation.base64EncodedString()
+        let data = Data("DoubleTake.zip contents".utf8)
+        let signature = (try! key.signature(for: data)).base64EncodedString()
+
+        #expect(UpdateSignature.isValid(signature, for: data, publicKey: publicKey))
+        #expect(UpdateSignature.isValid(signature + "\n", for: data, publicKey: publicKey))
+        #expect(!UpdateSignature.isValid(signature, for: Data("tampered".utf8), publicKey: publicKey))
+        let otherKey = Curve25519.Signing.PrivateKey().publicKey.rawRepresentation.base64EncodedString()
+        #expect(!UpdateSignature.isValid(signature, for: data, publicKey: otherKey))
+        #expect(!UpdateSignature.isValid("not base64!", for: data, publicKey: publicKey))
+        #expect(!UpdateSignature.isValid(signature, for: data, publicKey: ""))
+    }
+
+    @Test func appCarriesAReleaseKey() {
+        #expect(Data(base64Encoded: UpdateSignature.publicKey)?.count == 32)
+    }
+
+    @Test func findsTheSignatureAsset() throws {
+        let json = """
+        {"tag_name": "v1.1.0", "assets": [
+          {"name": "DoubleTake.zip", "browser_download_url": "https://example.com/a"},
+          {"name": "DoubleTake.zip.sig", "browser_download_url": "https://example.com/b"}]}
+        """
+        let release = try JSONDecoder().decode(Release.self, from: Data(json.utf8))
+        #expect(release.signature?.downloadURL.absoluteString == "https://example.com/b")
     }
 }

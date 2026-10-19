@@ -52,7 +52,7 @@ func render(scale: CGFloat) -> NSBitmapImageRep {
          size: 12, weight: .regular, color: muted, y: 318)
     text("open System Settings › Privacy & Security, scroll down and click Open Anyway.",
          size: 12, weight: .regular, color: muted, y: 336)
-    text("DoubleTake asks for Accessibility access once, so it can see your key presses.",
+    text("DoubleTake asks for Accessibility access once, to catch your shortcuts and send keystrokes.",
          size: 12, weight: .regular, color: muted, y: 366)
 
     NSGraphicsContext.restoreGraphicsState()

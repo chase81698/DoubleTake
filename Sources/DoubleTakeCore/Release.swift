@@ -54,4 +54,13 @@ public struct Release: Decodable, Equatable, Sendable {
 
     public var version: AppVersion? { AppVersion(tag) }
     public var archive: Asset? { assets.first { $0.name == Self.archiveName } }
+    public var signature: Asset? { assets.first { $0.name == UpdateSignature.fileName } }
+
+    /// Whether `url` is an HTTPS download from `repo`'s own GitHub releases
+    /// (https://github.com/<owner>/<repo>/releases/download/…).
+    public static func isTrustedDownload(_ url: URL, repo: String) -> Bool {
+        url.scheme == "https" && url.host?.lowercased() == "github.com" && url.user == nil && url.port == nil
+            && url.path.lowercased().hasPrefix("/\(repo.lowercased())/releases/download/")
+            && !url.pathComponents.contains("..")
+    }
 }

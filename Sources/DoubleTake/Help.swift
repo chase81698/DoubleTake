@@ -116,6 +116,7 @@ enum Help {
     ## Network access
     Checking for updates (the update command, the app's Check for Updates button, or the optional check when the
     app opens) is the only time DoubleTake uses the internet. Nothing else it does touches the network.
+    Updates install only if DoubleTake.zip carries a valid signature from the maintainer's release key.
 
     ## Trigger syntax
     Tap triggers (the key must be pressed and released on its own, quickly):
