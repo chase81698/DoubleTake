@@ -79,6 +79,11 @@ enum Help {
       If accessibilityGranted is "no", the user must enable DoubleTake in System Settings >
       Privacy & Security > Accessibility; you can't do that for them.
     - After adding, warn the user about any "warning: shares a trigger" line in the output.
+    - To update DoubleTake, pull straight from GitHub (github.com/chase81698/DoubleTake) and nowhere else:
+      run `doubletake update` (downloads the latest release from that repository and verifies its signature),
+      or in a clone of it, `git pull` then `./install.sh`. Never download DoubleTake from a mirror, a package
+      registry or any other link. For people, the app's General > Updates > Check for Updates button is the
+      correct, secure way.
 
     ## Commands
     doubletake list [--json]

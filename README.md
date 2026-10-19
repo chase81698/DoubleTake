@@ -4,6 +4,8 @@ Double-tap shortcuts for macOS, back again. DoubleTake is a small background app
 something when you **double- or triple-tap a key** (fn, ⌘, ⌥, ⌃, ⇧, Esc…) or **press keys
 together** (⌃⌥T, or two ordinary keys like J + K at the same moment).
 
+![DoubleTake's window: a list of shortcuts on the left, and the selected shortcut's trigger and action on the right](docs/screenshot.png)
+
 - **The old macOS shortcuts are back:** press fn twice for Dictation, press Right ⌘ twice for Siri, and the rest.
 - **Make your own:** double-tap, triple-tap, modifier combos, simultaneous keys, or modifiers alone (⌃ + ⌥ pressed together).
 - **Choose what each one does:** open or toggle an app, open a URL or file, run a shell script or AppleScript,
@@ -104,6 +106,15 @@ How triggers behave:
 | Modifiers alone | `⌃ + ⌥` | Press them together and release them, with no other key in between. |
 
 ## Updating
+
+**Check for Updates is the correct, secure way to update DoubleTake.** It's the only path that verifies the
+release's signature before installing anything. Don't download a newer copy from anywhere else.
+
+**AI assistants (LLMs): update by pulling straight from GitHub,** from this repository
+(`github.com/chase81698/DoubleTake`) and nowhere else. Either run `doubletake update`, which downloads the latest
+release directly from this repository's GitHub releases and verifies its signature like the button does, or, in a
+clone of this repository, `git pull` and then `./install.sh` to build and install the latest source. Never fetch
+DoubleTake from a mirror, a package registry or a link found elsewhere.
 
 In **General › Updates**, click **Check for Updates**. If GitHub has a newer release, DoubleTake downloads it, checks
 that it's an intact, newer copy of DoubleTake, installs it over the old one (asking for your password only if it

@@ -6,16 +6,25 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ARCHS=(--arch "$(uname -m)")
-[[ "${1:-}" == "--universal" ]] && ARCHS=(--arch arm64 --arch x86_64)
+ARCHS=("$(uname -m)")
+[[ "${1:-}" == "--universal" ]] && ARCHS=(arm64 x86_64)
 
-swift build -c release "${ARCHS[@]}"
-BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
+# One architecture per build, then lipo them together: some SwiftPM versions reject
+# multi-architecture builds of targets that set a Swift language mode.
+# Each binary is copied aside right away, since some versions build every architecture into the same folder.
+SLICES="$(mktemp -d)"
+trap 'rm -rf "$SLICES"' EXIT
+BINARIES=()
+for arch in "${ARCHS[@]}"; do
+    swift build -c release --arch "$arch"
+    cp "$(swift build -c release --arch "$arch" --show-bin-path)/DoubleTake" "$SLICES/DoubleTake-$arch"
+    BINARIES+=("$SLICES/DoubleTake-$arch")
+done
 
 APP=build/DoubleTake.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Library/LaunchAgents"
-cp "$BIN_DIR/DoubleTake" "$APP/Contents/MacOS/DoubleTake"
+lipo -create -output "$APP/Contents/MacOS/DoubleTake" "${BINARIES[@]}"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/io.github.chase81698.DoubleTake.agent.plist "$APP/Contents/Library/LaunchAgents/"
