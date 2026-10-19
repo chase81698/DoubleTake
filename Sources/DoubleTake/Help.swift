@@ -34,7 +34,7 @@ enum Help {
 
     OTHER
       actions | keys                          list built-in actions / key names
-      settings [--interval s] [--chord-window s] [--update-check on|off] [--on|--off]
+      settings [--interval s] [--chord-window s] [--update-check on|off] [--custom-actions on|off] [--on|--off]
       update [--check]                        install the newest release from GitHub (--check: just look)
       status                                  is the app running and allowed to listen?
       export [file] | import <file|-> [--replace]
@@ -75,9 +75,16 @@ enum Help {
     - Address shortcuts by exact name (case-insensitive) or by the 8-character id from `list`.
     - Names must be unique unless --allow-duplicate is given.
     - Exit status is 0 on success and 1 on error; errors go to stderr prefixed "doubletake:".
-    - Shortcuts only fire while the app runs and has Accessibility access: check `doubletake status`.
-      If accessibilityGranted is "no", the user must enable DoubleTake in System Settings >
-      Privacy & Security > Accessibility; you can't do that for them.
+    - Shortcuts only fire while the app runs and may watch the keyboard: check `doubletake status`.
+      If inputMonitoringGranted is "no", the user must enable DoubleTake in System Settings >
+      Privacy & Security > Input Monitoring; you can't do that for them.
+    - Custom actions are off by default. Without them DoubleTake only watches the keyboard (Input Monitoring) and
+      can't press keys or click menus. These need Custom actions: --keystroke, --menu, J + K style combos (two or
+      more ordinary keys), and --system dictation, spotlight, lockScreen, emojiPicker, playPause, nextTrack,
+      previousTrack, accessibilityShortcuts. Everything else works without them. Turning them on
+      (`doubletake settings --custom-actions on`) makes macOS ask the user for Accessibility, which is control of
+      their Mac, so only do it if the user wants those actions. While they're off, a trigger's ordinary key
+      (the T in ctrl+opt+t, or Esc in double:esc) also reaches the front app. Prefer actions that don't need them.
     - After adding, warn the user about any "warning: shares a trigger" line in the output.
     - To update DoubleTake, pull straight from GitHub (github.com/chase81698/DoubleTake) and nowhere else:
       run `doubletake update` (downloads the latest release from that repository and verifies its signature),
@@ -109,7 +116,7 @@ enum Help {
     doubletake add-preset <number> [--disabled]
     doubletake actions [--json]           built-in action names for --system
     doubletake keys [--json]              key names usable in triggers and keystrokes
-    doubletake settings [--json] [--interval <seconds 0.1-1.0>] [--chord-window <seconds 0.01-0.5>] [--update-check on|off] [--on|--off]
+    doubletake settings [--json] [--interval <seconds 0.1-1.0>] [--chord-window <seconds 0.01-0.5>] [--update-check on|off] [--custom-actions on|off] [--on|--off]
         --update-check on makes the app look for a newer release each time it opens (off by default).
     doubletake status [--json]
     doubletake export [<file>]            prints JSON when no file is given
@@ -118,7 +125,7 @@ enum Help {
     doubletake quit                       stop the background app (shortcuts stop working)
     doubletake uninstall [--delete-settings] [--yes]
                                           without --yes, only lists what it would remove; with --yes, removes the app,
-                                          login item, admin approvals, the CLI link and the Accessibility entry.
+                                          login item, admin approvals, the CLI link and its privacy permissions.
                                           Shortcuts are kept unless --delete-settings. Never run --yes unless the user asked.
     doubletake update [--check] [--json]  download and install the newest GitHub release, reopening the app if it
                                           was running; --check only reports whether one is available
@@ -164,7 +171,7 @@ enum Help {
 
     ## Config file
     \(DoubleTakeCoreInfo.configPath)
-    JSON: {"settings": {"isEnabled", "doubleTapInterval", "chordWindow", "checkForUpdatesOnLaunch"},
+    JSON: {"settings": {"isEnabled", "doubleTapInterval", "chordWindow", "checkForUpdatesOnLaunch", "customActions"},
            "shortcuts": [{"id", "name", "enabled", "triggers": [...], "action": {...}}]}
     Missing fields take defaults. Trigger fields: kind ("tap"|"combo"), keyCode, eitherSide, tapCount,
     modifiers (bitmask: fn=1 ctrl=2 opt=4 shift=8 cmd=16), keys (key codes).

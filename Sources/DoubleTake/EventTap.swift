@@ -12,12 +12,18 @@ final class EventTap {
     var onRecorded: ((KeyRecorder.Result) -> Void)?
 
     private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
     private var timer: Timer?
     private var nextToken = 0
     private var stash: [Int: CGEvent] = [:]
     private var fnDown = false
 
     var isRunning: Bool { tap != nil }
+    /// Watch-only taps (Input Monitoring) can't stop a key reaching the front app.
+    private(set) var isListenOnly = false
+    private var localMonitor: Any?
+    /// Recording ends on the tap's copy of a key press, before the window gets it; keep the window from seeing it too.
+    private var holdLocalKeysUntil: TimeInterval = 0
 
     init(engine: Engine) {
         self.engine = engine
@@ -25,25 +31,49 @@ final class EventTap {
         engine.onDeadlineChange = { [weak self] in self?.schedule($0) }
     }
 
-    /// Installs the tap. Fails until the app has Accessibility permission.
+    /// Installs the tap: watch-only with Input Monitoring, or able to block keys with Accessibility
+    /// (Custom actions). Fails until the app has the matching permission.
     @discardableResult
-    func start() -> Bool {
+    func start(listenOnly: Bool) -> Bool {
+        if tap != nil, isListenOnly != listenOnly { stop() }
         guard tap == nil else { return true }
         let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown]
         let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .defaultTap,
+            options: listenOnly ? .listenOnly : .defaultTap,
             eventsOfInterest: mask,
             callback: eventTapCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else { return false }
         self.tap = tap
+        isListenOnly = listenOnly
+        engine.canHoldKeys = !listenOnly
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        self.source = source
         CGEvent.tapEnable(tap: tap, enable: true)
+        // A watch-only tap can't keep keys out of DoubleTake's own window while recording a trigger, so do that here.
+        if localMonitor == nil {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+                guard let self, isListenOnly,
+                      recorder != nil || ProcessInfo.processInfo.systemUptime < holdLocalKeysUntil else { return event }
+                return nil
+            }
+        }
         return true
+    }
+
+    func stop() {
+        guard let tap else { return }
+        engine.reset()
+        CGEvent.tapEnable(tap: tap, enable: false)
+        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        CFMachPortInvalidate(tap)
+        self.tap = nil
+        source = nil
+        stash = [:]
     }
 
     fileprivate func process(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -60,6 +90,7 @@ final class EventTap {
             if e.kind == .mouseDown { return pass }
             if let result = recorder.handle(e) {
                 self.recorder = nil
+                holdLocalKeysUntil = ProcessInfo.processInfo.systemUptime + 0.5
                 DispatchQueue.main.async { self.onRecorded?(result) }
             }
             // Keep keys from typing into the window while recording.

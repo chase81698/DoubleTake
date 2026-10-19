@@ -24,7 +24,7 @@ enum Updater {
 
     static var currentVersion: AppVersion? { AppVersion(CLI.version) }
 
-    /// Unsigned (ad-hoc) builds lose their Accessibility approval whenever the app is replaced.
+    /// Unsigned (ad-hoc) builds lose their Input Monitoring and Accessibility approvals whenever the app is replaced.
     static let isAdHocSigned: Bool = {
         guard let app = Installer.appBundleURL else { return true }
         return (try? shell("/usr/bin/codesign", "-dv", app.path))?.contains("Signature=adhoc") ?? true
@@ -122,7 +122,9 @@ enum Updater {
         }
         if resetPermission {
             // The old approval no longer matches the new build; clear it so macOS asks again cleanly.
-            _ = try? shell("/usr/bin/tccutil", "reset", "Accessibility", Installer.bundleID)
+            for service in ["ListenEvent", "Accessibility"] {
+                _ = try? shell("/usr/bin/tccutil", "reset", service, Installer.bundleID)
+            }
         }
         return target
     }
@@ -209,7 +211,7 @@ final class UpdateController {
         alert.messageText = "DoubleTake \(version) is available"
         var details = "You have \(current). DoubleTake downloads the update from GitHub, installs it, and reopens."
         if Updater.isAdHocSigned {
-            details += " macOS then asks you to switch on Accessibility for it again."
+            details += " macOS then asks you to allow DoubleTake's keyboard access again."
         }
         if let notes = release.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
             details += "\n\n" + (notes.count > 600 ? String(notes.prefix(600)) + "…" : notes)

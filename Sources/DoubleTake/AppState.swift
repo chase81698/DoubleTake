@@ -15,6 +15,10 @@ final class AppState {
     var settings = AppSettings() {
         didSet {
             applySettings()
+            if settings.customActions != oldValue.customActions {
+                // Accessibility is asked for only when the user switches Custom actions on.
+                checkPermission(prompt: settings.customActions && !isLoading)
+            }
             save()
         }
     }
@@ -23,7 +27,12 @@ final class AppState {
     var launchAtLogin = SMAppService.agent(plistName: "io.github.chase81698.DoubleTake.agent.plist").status == .enabled {
         didSet { updateLoginItem() }
     }
+    /// Whether DoubleTake can watch the keyboard, so shortcuts can fire (Input Monitoring, or Accessibility).
     private(set) var isTrusted = false
+    private(set) var inputMonitoringGranted = false
+    private(set) var accessibilityGranted = false
+    /// Custom actions is on but macOS hasn't allowed Accessibility yet.
+    var needsAccessibility: Bool { settings.customActions && !accessibilityGranted }
     private(set) var recordingID: UUID?
     private(set) var lastFired: (name: String, date: Date)?
     /// Whether the window should open at launch (first run or missing permission).
@@ -32,6 +41,7 @@ final class AppState {
     @ObservationIgnored let engine = Engine()
     @ObservationIgnored let tap: EventTap
     @ObservationIgnored private var permissionTimer: Timer?
+    @ObservationIgnored private var offeredCustomActions: Set<UUID> = []
     @ObservationIgnored private var isLoading = false
     @ObservationIgnored private var lastSavedData: Data?
     @ObservationIgnored private var watcher: DispatchSourceFileSystemObject?
@@ -44,13 +54,18 @@ final class AppState {
         engine.onFire = { [weak self] shortcut in
             // Leave the event tap callback before doing any real work.
             DispatchQueue.main.async {
-                self?.lastFired = (shortcut.name, Date())
+                guard let self else { return }
+                if shortcut.action.needsCustomActions && !self.settings.customActions {
+                    return self.offerCustomActions(for: shortcut)
+                }
+                self.lastFired = (shortcut.name, Date())
                 ActionRunner.run(shortcut)
             }
         }
         applySettings()
         engine.shortcuts = shortcuts
-        // Shows macOS's own "allow Accessibility" prompt when needed, and lists the app in Settings.
+        // Shows macOS's own permission prompt when needed (Input Monitoring, or Accessibility with
+        // Custom actions on), and lists the app in Settings.
         checkPermission(prompt: true)
         needsAttention = needsAttention || !isTrusted
         watchConfig()
@@ -60,20 +75,39 @@ final class AppState {
 
     // MARK: - Permission
 
+    /// Opens the System Settings page for whichever permission is missing.
     func requestPermission() {
         checkPermission(prompt: true)
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        let pane = isTrusted ? "Privacy_Accessibility" : "Privacy_ListenEvent"
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
     }
 
+    /// Without Custom actions DoubleTake only needs to watch the keyboard (Input Monitoring). With them it
+    /// also needs Accessibility to press keys, click menus and keep trigger keys from the front app.
     private func checkPermission(prompt: Bool) {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): prompt] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
-        if trusted != isTrusted {
-            isTrusted = trusted
-            writeStatus()
+        var listen = CGPreflightListenEventAccess()
+        // Don't even ask about Accessibility unless Custom actions are on: asking can list DoubleTake there.
+        var ax = settings.customActions && AXIsProcessTrusted()
+        if prompt {
+            if settings.customActions, !ax {
+                ax = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
+            } else if !settings.customActions, !listen {
+                listen = CGRequestListenEventAccess()
+            }
         }
-        if isTrusted, tap.start() {
-            writeStatus()
+        let canWatch = listen || ax
+        if (listen, ax, canWatch) != (inputMonitoringGranted, accessibilityGranted, isTrusted) {
+            inputMonitoringGranted = listen
+            accessibilityGranted = ax
+            isTrusted = canWatch
+            ActionRunner.accessibilityGranted = ax
+        }
+        // Block-capable tap only with Custom actions and Accessibility; otherwise watch only.
+        if canWatch { tap.start(listenOnly: !(settings.customActions && ax)) }
+        writeStatus()
+
+        let waiting = !tap.isRunning || needsAccessibility || (settings.customActions && tap.isListenOnly)
+        if !waiting {
             permissionTimer?.invalidate()
             permissionTimer = nil
         } else if permissionTimer == nil {
@@ -81,6 +115,23 @@ final class AppState {
                 MainActor.assumeIsolated { self?.checkPermission(prompt: false) }
             }
         }
+    }
+
+    /// A shortcut whose action needs Custom actions fired while they're off: offer to turn them on
+    /// (once per shortcut per session) instead of failing silently.
+    private func offerCustomActions(for shortcut: Shortcut) {
+        guard !offeredCustomActions.contains(shortcut.id) else { return NSSound.beep() }
+        offeredCustomActions.insert(shortcut.id)
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "“\(shortcut.name)” needs Custom actions"
+        alert.informativeText = "It presses keys or clicks a menu item for you, which macOS only allows with Accessibility access. "
+            + "Turn on Custom actions and macOS asks you to allow DoubleTake under Accessibility. "
+            + "You can switch them off again in General."
+        alert.addButton(withTitle: "Turn On Custom Actions")
+        alert.addButton(withTitle: "Not Now")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        settings.customActions = true
     }
 
     // MARK: - Recording
@@ -133,6 +184,7 @@ final class AppState {
         engine.doubleTapInterval = settings.doubleTapInterval
         engine.chordWindow = settings.chordWindow
         tap.isEnabled = settings.isEnabled
+        ActionRunner.customActionsEnabled = settings.customActions
     }
 
     /// Start at login is on by default: it's switched on once, the first time the app runs from
@@ -216,7 +268,8 @@ final class AppState {
     }
 
     private func writeStatus() {
-        let status = AppStatus(pid: ProcessInfo.processInfo.processIdentifier, accessibilityGranted: isTrusted,
+        let status = AppStatus(pid: ProcessInfo.processInfo.processIdentifier, inputMonitoringGranted: inputMonitoringGranted,
+                               accessibilityGranted: accessibilityGranted, customActions: settings.customActions,
                                listening: tap.isRunning, appPath: Bundle.main.bundlePath)
         guard let data = try? JSONEncoder().encode(status) else { return }
         try? FileManager.default.createDirectory(at: ConfigFile.directory, withIntermediateDirectories: true)

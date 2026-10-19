@@ -27,6 +27,15 @@ struct ShortcutEditor: View {
                     shortcut.triggers.append(Trigger())
                 }
                 .buttonStyle(.borderless)
+                if !state.settings.customActions {
+                    if shortcut.triggers.contains(where: \.needsCustomActions) {
+                        CustomActionsNote(text: "J + K style combos (two or more ordinary keys) need Custom actions, so they're ignored until you switch them on.")
+                    } else if shortcut.triggers.contains(where: \.passesKeyThroughWithoutCustomActions) {
+                        Text("Without Custom actions DoubleTake only watches the keyboard, so the key also reaches the app in front.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text("Triggers")
             } footer: {
@@ -36,6 +45,9 @@ struct ShortcutEditor: View {
 
             Section("Action") {
                 ActionEditor(action: $shortcut.action, shortcutID: shortcut.id, shortcutName: shortcut.name)
+                if shortcut.action.needsCustomActions && !state.settings.customActions {
+                    CustomActionsNote(text: "This action presses keys or clicks a menu for you, which needs Custom actions (and Accessibility).")
+                }
                 HStack {
                     Button("Test Action") {
                         testResult = nil
@@ -184,7 +196,7 @@ struct RecorderButton: View {
             .frame(minWidth: 150)
         }
         .disabled(!state.isTrusted)
-        .help(state.isTrusted ? "Click, then press keys. Click again to cancel." : "Grant Accessibility access first.")
+        .help(state.isTrusted ? "Click, then press keys. Click again to cancel." : "Allow Input Monitoring first (General › Status).")
     }
 
     private var prompt: String {
@@ -196,7 +208,25 @@ struct RecorderButton: View {
     }
 }
 
+/// Explains that something needs Custom actions, with a button to switch them on (macOS then asks for Accessibility).
+struct CustomActionsNote: View {
+    @Environment(AppState.self) private var state
+    let text: String
+
+    var body: some View {
+        HStack {
+            Label(text, systemImage: "lock")
+                .font(.caption)
+                .foregroundStyle(.orange)
+            Spacer()
+            Button("Turn On Custom Actions…") { state.settings.customActions = true }
+                .controlSize(.small)
+        }
+    }
+}
+
 struct ActionEditor: View {
+    @Environment(AppState.self) private var state
     @Binding var action: Action
     let shortcutID: UUID
     let shortcutName: String
@@ -205,7 +235,9 @@ struct ActionEditor: View {
 
     var body: some View {
         Picker("Do", selection: $action.type) {
-            ForEach(ActionType.allCases, id: \.self) { Text($0.title).tag($0) }
+            ForEach(ActionType.allCases, id: \.self) { type in
+                Text(type.title + (lockedWithoutCustomActions(type == .keystroke || type == .menuItem) ? " (Custom actions)" : "")).tag(type)
+            }
         }
 
         switch action.type {
@@ -213,7 +245,9 @@ struct ActionEditor: View {
             Picker("Action", selection: $action.system) {
                 ForEach(SystemAction.groups, id: \.title) { group in
                     Section(group.title) {
-                        ForEach(group.actions, id: \.self) { Text($0.title).tag($0) }
+                        ForEach(group.actions, id: \.self) { system in
+                            Text(system.title + (lockedWithoutCustomActions(system.needsCustomActions) ? " (Custom actions)" : "")).tag(system)
+                        }
                     }
                 }
             }
@@ -370,4 +404,9 @@ struct AdminApprovalRow: View {
                 .foregroundStyle(.secondary)
         }
     }
+}
+
+extension ActionEditor {
+    /// Marks picker items that need Custom actions while they're off.
+    func lockedWithoutCustomActions(_ needs: Bool) -> Bool { needs && !state.settings.customActions }
 }

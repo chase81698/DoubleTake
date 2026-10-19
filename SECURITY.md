@@ -12,9 +12,11 @@ Only the latest release is supported.
 
 ## How DoubleTake is built to be safe
 
-- **Key presses stay on your Mac.** DoubleTake watches the keyboard through an Accessibility event tap, matches
-  presses against your shortcuts in memory, and forgets them. It doesn't log or store what you type, and
-  doesn't send it anywhere.
+- **Key presses stay on your Mac.** DoubleTake watches the keyboard through an event tap, matches presses against
+  your shortcuts in memory, and forgets them. It doesn't log or store what you type, and doesn't send it anywhere.
+- **Least privilege by default.** Out of the box the tap is watch-only and needs only Input Monitoring, which can't
+  type or control anything. Accessibility (control of the Mac) is requested only if you switch on Custom actions,
+  for actions that must press keys or click menus.
 - **The only network use is checking for updates**, and only when you click Check for Updates or turn on the
   automatic check (off by default). It asks GitHub for the latest release and downloads it.
 - **Updates are signed.** Each release's `DoubleTake.zip` is signed with an Ed25519 key that never leaves the
@@ -27,6 +29,7 @@ Only the latest release is supported.
   password-protected root step, never through a folder your account can write to, and the sudoers rule is checked
   with `visudo` before it's installed. Editing a script makes it unapproved again.
 - **Uninstalling removes everything it added**: the login item, administrator approvals, the `doubletake`
-  command and the Accessibility entry (General › Uninstall DoubleTake…, or `doubletake uninstall --yes`).
+  command and its Input Monitoring and Accessibility entries (General › Uninstall DoubleTake…, or
+  `doubletake uninstall --yes`).
 
 The app isn't signed with an Apple Developer ID, so macOS asks you to confirm it the first time you open it.

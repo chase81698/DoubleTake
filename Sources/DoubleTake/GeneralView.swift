@@ -98,17 +98,36 @@ struct GeneralView: View {
                 Text("Updates")
             } footer: {
                 Text("Checking for updates is the only time DoubleTake connects to the internet. It asks GitHub for the latest release; if there's a newer one, it downloads and installs it, then reopens."
-                     + (Updater.isAdHocSigned ? " macOS then asks you to switch on Accessibility for it again." : ""))
+                     + (Updater.isAdHocSigned ? " macOS then asks you to allow DoubleTake's keyboard access again." : ""))
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Custom actions", isOn: $state.settings.customActions)
+            } header: {
+                Text("Custom Actions")
+            } footer: {
+                Text("Lets shortcuts press keys and click menu items for you: Dictation, Spotlight, Lock Screen, Emoji & Symbols, playback controls, Send Keystroke and Click Menu Item. It also enables J + K combos and keeps ⌃⌥T-style triggers from reaching the front app. These need Accessibility, which macOS treats as control of your Mac, so they stay off until you switch them on. Everything else only needs DoubleTake to watch the keyboard (Input Monitoring).")
                     .foregroundStyle(.secondary)
             }
 
             Section("Status") {
-                LabeledContent("Accessibility access") {
+                LabeledContent("Input Monitoring") {
                     if state.isTrusted {
                         Label("Granted", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                     } else {
                         Button("Grant Access…") { state.requestPermission() }
+                    }
+                }
+                if state.settings.customActions {
+                    LabeledContent("Accessibility (Custom actions)") {
+                        if state.accessibilityGranted {
+                            Label("Granted", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Button("Grant Access…") { state.requestPermission() }
+                        }
                     }
                 }
                 LabeledContent("Administrator scripts") {

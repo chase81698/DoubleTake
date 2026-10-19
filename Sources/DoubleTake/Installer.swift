@@ -161,7 +161,7 @@ enum Installer {
             plan.append("Remove \(approved == 1 ? "the administrator approval" : "\(approved) administrator approvals") (root-owned scripts and their sudo rule)")
         }
         if cliLinkIsOurs { plan.append("Remove the `doubletake` command from \(cliPath)") }
-        plan.append("Remove DoubleTake from Accessibility in System Settings")
+        plan.append("Remove DoubleTake from Input Monitoring and Accessibility in System Settings")
         for app in appsToRemove { plan.append("Move \(app.path) to the Trash") }
         let home = NSHomeDirectory()
         let config = ConfigFile.directory.path.replacingOccurrences(of: home, with: "~")
@@ -196,6 +196,7 @@ enum Installer {
         if !rootSteps.isEmpty {
             try runAsAdmin(rootSteps.joined(separator: "; "))
         }
+        run("/usr/bin/tccutil", "reset", "ListenEvent", bundleID)
         run("/usr/bin/tccutil", "reset", "Accessibility", bundleID)
         if deleteSettings {
             for url in dataLocations { try? fm.removeItem(at: url) }

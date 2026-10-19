@@ -15,6 +15,8 @@ together** (⌃⌥T, or two ordinary keys like J + K at the same moment).
 - **GUI for people, CLI for scripts and AI assistants.** Both edit the same config, and changes take effect immediately.
 - **Stays out of the way:** no menu bar or Dock icon. Native Swift, no dependencies, just one quiet background listener.
 - **Offline unless you ask:** checking for updates is the only time DoubleTake connects to the internet (see [Updating](#updating)).
+- **No control of your Mac unless you want it:** by default it only *watches* the keyboard (Input Monitoring). Actions
+  that press keys or click menus, like Dictation and Send Keystroke, are opt-in [Custom actions](#custom-actions-optional-needs-accessibility).
 
 Requires macOS 15 or later (built for macOS 27).
 
@@ -26,7 +28,7 @@ Requires macOS 15 or later (built for macOS 27).
 3. **The first time only:** DoubleTake isn't signed by Apple, so macOS says it can't check it for malicious software.
    Click **Done**, open **System Settings › Privacy & Security**, scroll down to "DoubleTake was blocked", click
    **Open Anyway**, and confirm. After that it opens normally.
-4. Switch DoubleTake on when it asks for **Accessibility** access (see below).
+4. Switch DoubleTake on when it asks for **Input Monitoring**, so it can notice your shortcuts (see below).
 
 The `doubletake` command line tool is optional: in the app, go to **General › Command Line** and click **Install `doubletake`**.
 
@@ -50,24 +52,41 @@ cd DoubleTake
 
 **Uninstall:** in the app, **General › Uninstall DoubleTake…**, or `doubletake uninstall --yes` in Terminal (without
 `--yes` it just lists what it would remove). Either one removes the app, its login item, any administrator approvals
-(root-owned scripts and their sudo rule), the `doubletake` command and the Accessibility entry. Your shortcuts stay in
+(root-owned scripts and their sudo rule), the `doubletake` command and its privacy permissions. Your shortcuts stay in
 `~/Library/Application Support/DoubleTake/` unless you tick **Also delete my shortcuts and settings**
 (`--delete-settings`). `./install.sh --uninstall` does the same from a clone. Dragging the app to the Trash isn't
 enough, because the login item and administrator approvals would be left behind.
 
 If you run the app from somewhere else (for example, Downloads), it offers to move itself to Applications.
 
-### The one manual step: Accessibility access
+### The one manual step: Input Monitoring
 
-macOS requires you to approve DoubleTake once in **System Settings › Privacy & Security › Accessibility**.
-The app opens that page for you, and starts working as soon as you switch it on.
-No app can grant itself this permission, which is the point of it.
+To notice your shortcuts, DoubleTake needs to watch the keyboard, so macOS asks you to approve it once in
+**System Settings › Privacy & Security › Input Monitoring**. That permission only lets it *see* key presses: it
+can't type, click or control anything. The app opens that page for you and starts working as soon as you switch it
+on (if macOS offers to quit and reopen DoubleTake, accept). No app can grant itself this permission, which is the
+point of it.
 
-**Why Accessibility, and not the narrower Input Monitoring?** Input Monitoring only lets an app *watch* keys.
-DoubleTake also has to **block** them (so ⌃⌥T doesn't also type a T in the front app, and a double-tapped Esc
-doesn't send a second Esc), **hold them back** for a split second (J + K style combos), **send** keystrokes and
-media keys for you, and **click menu items** in other apps. macOS only allows those with Accessibility, and
-Accessibility already includes watching, so DoubleTake asks for nothing else.
+That's all most shortcuts need: opening apps, URLs and files, shell scripts, AppleScript, Shortcuts, Siri, Mission
+Control, App Exposé, Show Desktop, Screen Saver, Screenshot, Sleep Display, Dark Mode, mute and volume, Hide Others
+and Quit Front App.
+
+### Custom actions (optional, needs Accessibility)
+
+Some actions have to press keys or click menus for you, and macOS only allows that with **Accessibility**, which is
+full control of your Mac. DoubleTake never asks for it unless you switch on **Custom actions** in General. They cover:
+
+- **Send Keystroke** and **Click Menu Item**
+- **Dictation** (it clicks the front app's Start Dictation menu item), **Spotlight**, **Lock Screen**, **Emoji &
+  Symbols**, **Play / Pause**, **Next / Previous Track** and **Accessibility Shortcuts**
+- **J + K style combos** (two or more ordinary keys), whose first key has to be held back for a moment
+- **Keeping trigger keys to yourself:** with Custom actions on, ⌃⌥T doesn't also reach the front app and a
+  double-tapped Esc doesn't send a second Esc. Without them DoubleTake can only watch, so those keys get through.
+  (Modifier taps like fn fn or ⌘ ⌘ type nothing either way.)
+
+These actions work exactly the same either way; they're just locked until you switch Custom actions on. Shortcuts
+that need them show a lock, and if one runs while they're off, DoubleTake offers to turn them on. With Custom
+actions on, mute and volume also show macOS's on-screen indicator.
 
 Other prompts appear only when you use the feature that needs them: macOS asks once per app the first time an
 action controls another app (Automation, e.g. Toggle Dark Mode or your own AppleScript), and "Run as administrator"
@@ -119,7 +138,8 @@ DoubleTake from a mirror, a package registry or a link found elsewhere.
 In **General › Updates**, click **Check for Updates**. If GitHub has a newer release, DoubleTake downloads it, checks
 that it's an intact, newer copy of DoubleTake, installs it over the old one (asking for your password only if it
 can't write to that folder), then quits and reopens as the new version. Your shortcuts and settings carry over.
-Because DoubleTake isn't signed by Apple, macOS asks you to switch Accessibility on for it again after each update.
+Because DoubleTake isn't signed by Apple, macOS asks you to approve its keyboard access (Input Monitoring, and
+Accessibility if Custom actions are on) again after each update.
 
 **Check for updates when DoubleTake opens** does the same check each time the app starts and asks before installing.
 It's **off by default**.
@@ -191,7 +211,7 @@ Layout:
 - `Sources/DoubleTakeCore`: the pure parts. Models, the key-matching engine, the recorder, and the CLI text formats. Fully unit-tested.
 - `Sources/DoubleTake`: the app. Event tap, actions, SwiftUI interface, CLI, and installer. The app and the `doubletake` command are the same binary.
 
-Ad-hoc-signed builds have no stable identity, so macOS forgets the Accessibility approval when the app is
+Ad-hoc-signed builds have no stable identity, so macOS forgets the Input Monitoring and Accessibility approvals when the app is
 rebuilt or updated. `install.sh` clears the stale entry so you can switch it on again.
 
 ## License

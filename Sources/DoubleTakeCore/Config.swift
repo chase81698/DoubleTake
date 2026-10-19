@@ -6,6 +6,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var chordWindow = 0.08
     /// Ask GitHub for a newer release each time the app opens. Off unless the user turns it on.
     public var checkForUpdatesOnLaunch = false
+    /// Allow actions that press keys or click menus, J + K combos, and keeping trigger keys from the front app.
+    /// Needs Accessibility; without it DoubleTake only watches the keyboard (Input Monitoring). Off by default.
+    public var customActions = false
 
     public init() {}
 
@@ -15,6 +18,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         doubleTapInterval = try c.decodeIfPresent(Double.self, forKey: .doubleTapInterval) ?? 0.3
         chordWindow = try c.decodeIfPresent(Double.self, forKey: .chordWindow) ?? 0.08
         checkForUpdatesOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdatesOnLaunch) ?? false
+        customActions = try c.decodeIfPresent(Bool.self, forKey: .customActions) ?? false
     }
 }
 
@@ -80,14 +84,31 @@ public struct ConfigFile: Codable, Equatable, Sendable {
 /// What the running app reports about itself.
 public struct AppStatus: Codable, Sendable {
     public var pid: Int32
+    /// Whether DoubleTake may watch the keyboard (Input Monitoring).
+    public var inputMonitoringGranted: Bool
+    /// Whether DoubleTake may press keys and click menus (Accessibility); only needed for Custom actions.
     public var accessibilityGranted: Bool
+    public var customActions: Bool
     public var listening: Bool
     public var appPath: String
 
-    public init(pid: Int32, accessibilityGranted: Bool, listening: Bool, appPath: String) {
+    public init(pid: Int32, inputMonitoringGranted: Bool, accessibilityGranted: Bool, customActions: Bool,
+                listening: Bool, appPath: String) {
         self.pid = pid
+        self.inputMonitoringGranted = inputMonitoringGranted
         self.accessibilityGranted = accessibilityGranted
+        self.customActions = customActions
         self.listening = listening
         self.appPath = appPath
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        pid = try c.decode(Int32.self, forKey: .pid)
+        accessibilityGranted = try c.decodeIfPresent(Bool.self, forKey: .accessibilityGranted) ?? false
+        inputMonitoringGranted = try c.decodeIfPresent(Bool.self, forKey: .inputMonitoringGranted) ?? accessibilityGranted
+        customActions = try c.decodeIfPresent(Bool.self, forKey: .customActions) ?? true
+        listening = try c.decodeIfPresent(Bool.self, forKey: .listening) ?? false
+        appPath = try c.decodeIfPresent(String.self, forKey: .appPath) ?? ""
     }
 }

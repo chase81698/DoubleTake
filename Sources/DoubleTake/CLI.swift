@@ -76,6 +76,8 @@ enum CLI {
         case "run":
             let config = try loadConfig()
             let s = config.shortcuts[try find(args.positional.first, in: config)]
+            ActionRunner.customActionsEnabled = config.settings.customActions
+            ActionRunner.accessibilityGranted = config.settings.customActions && AXIsProcessTrusted()
             try runAction(s)
             print("Ran “\(s.name)”.")
         case "presets":
@@ -197,7 +199,7 @@ enum CLI {
             }
             config.shortcuts.append(s)
             return "Added “\(name)” (\(s.shortID)): \(triggers.map(Spec.format).joined(separator: ", ")) → \(action.summary)"
-                + conflictNote(s, in: config) + adminNote(s)
+                + conflictNote(s, in: config) + adminNote(s) + customActionsNote(s, in: config)
         }
     }
 
@@ -229,7 +231,7 @@ enum CLI {
             if disable { s.enabled = false }
             config.shortcuts[i] = s
             return "Updated “\(s.name)”: \(s.triggers.map(Spec.format).joined(separator: ", ")) → \(s.action.summary)"
-                + conflictNote(s, in: config) + adminNote(s)
+                + conflictNote(s, in: config) + adminNote(s) + customActionsNote(s, in: config)
         }
     }
 
@@ -308,12 +310,20 @@ enum CLI {
             default: throw CLIError("--update-check is on or off")
             }
         }
+        let customActions = try args.value("custom-actions").map { v -> Bool in
+            switch v.lowercased() {
+            case "on": return true
+            case "off": return false
+            default: throw CLIError("--custom-actions is on or off")
+            }
+        }
         let on = args.flag("on"), off = args.flag("off")
-        if interval != nil || window != nil || updateCheck != nil || on || off {
+        if interval != nil || window != nil || updateCheck != nil || customActions != nil || on || off {
             try mutate { config in
                 if let interval { config.settings.doubleTapInterval = interval }
                 if let window { config.settings.chordWindow = window }
                 if let updateCheck { config.settings.checkForUpdatesOnLaunch = updateCheck }
+                if let customActions { config.settings.customActions = customActions }
                 if on { config.settings.isEnabled = true }
                 if off { config.settings.isEnabled = false }
                 return "Settings saved."
@@ -325,6 +335,7 @@ enum CLI {
         print("interval:      \(s.doubleTapInterval)s  (longest gap between taps)")
         print("chord-window:  \(s.chordWindow)s  (how close together keys count as simultaneous)")
         print("update-check:  \(s.checkForUpdatesOnLaunch ? "on" : "off")  (ask GitHub for a newer version when the app opens)")
+        print("custom-actions: \(s.customActions ? "on" : "off")  (press keys and click menus for you; needs Accessibility)")
     }
 
     /// Same steps as the app's Check for Updates button. If the app is running, it's quit
@@ -359,7 +370,7 @@ enum CLI {
         if !running.isEmpty { NSWorkspace.shared.open(installed) }
         print("Updated to DoubleTake \(latest).")
         if Updater.isAdHocSigned {
-            print("macOS will ask you to switch on Accessibility for DoubleTake again.")
+            print("macOS will ask you to allow DoubleTake's keyboard access again.")
         }
     }
 
@@ -381,6 +392,8 @@ enum CLI {
         let info: [String: String] = [
             "version": version,
             "appRunning": running != nil ? "yes" : "no",
+            "inputMonitoringGranted": live ? (reported!.inputMonitoringGranted || reported!.accessibilityGranted ? "yes" : "no") : "unknown",
+            "customActions": config.map { $0.settings.customActions ? "on" : "off" } ?? "off",
             "accessibilityGranted": live ? (reported!.accessibilityGranted ? "yes" : "no") : "unknown",
             "listening": live ? (reported!.listening ? "yes" : "no") : "no",
             "enabled": config.map { $0.settings.isEnabled ? "yes" : "no" } ?? "yes",
@@ -391,12 +404,14 @@ enum CLI {
             "adminScriptsApproved": "\(AdminScripts.approvedCount())",
         ]
         if args.flag("json") { return try printJSON(info) }
-        for key in ["version", "appRunning", "accessibilityGranted", "listening", "enabled", "shortcuts", "adminScriptsApproved", "app", "config", "cli"] {
+        for key in ["version", "appRunning", "inputMonitoringGranted", "customActions", "accessibilityGranted", "listening", "enabled", "shortcuts", "adminScriptsApproved", "app", "config", "cli"] {
             print("\(key):".padding(toLength: 22, withPad: " ", startingAt: 0) + info[key]!)
         }
         if running == nil { print("\nStart the app with `doubletake open`; shortcuts only work while it runs.") }
-        if live, reported?.accessibilityGranted == false {
-            print("\nGrant Accessibility access in System Settings › Privacy & Security › Accessibility.")
+        if live, let reported, !reported.inputMonitoringGranted, !reported.accessibilityGranted {
+            print("\nAllow DoubleTake in System Settings › Privacy & Security › Input Monitoring.")
+        } else if live, let reported, reported.customActions, !reported.accessibilityGranted {
+            print("\nCustom actions are on: allow DoubleTake in System Settings › Privacy & Security › Accessibility.")
         }
     }
 
@@ -552,6 +567,17 @@ enum CLI {
             other.id != s.id && other.enabled && other.triggers.contains { o in s.triggers.contains { $0.overlaps(o) } }
         }
         return clashes.isEmpty ? "" : "\nwarning: shares a trigger with \(clashes.map { "“\($0.name)”" }.joined(separator: ", ")); only one will run."
+    }
+
+    private static func customActionsNote(_ s: Shortcut, in config: ConfigFile) -> String {
+        guard !config.settings.customActions else { return "" }
+        if s.needsCustomActions {
+            return "\nnote: this needs Custom actions (Accessibility), which are off, so it won't run until the user turns them on (`doubletake settings --custom-actions on`, then they allow DoubleTake under Accessibility)."
+        }
+        if s.triggers.contains(where: \.passesKeyThroughWithoutCustomActions) {
+            return "\nnote: Custom actions are off, so the trigger's key also reaches the front app."
+        }
+        return ""
     }
 
     private static func adminNote(_ s: Shortcut) -> String {

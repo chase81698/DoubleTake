@@ -34,7 +34,7 @@ struct MainView: View {
             }
         } detail: {
             VStack(spacing: 0) {
-                if !state.isTrusted {
+                if !state.isTrusted || state.needsAccessibility {
                     PermissionBanner()
                 }
                 detail
@@ -124,6 +124,11 @@ struct ShortcutRow: View {
                         .lineLimit(1)
                 }
                 Spacer()
+                if s.needsCustomActions && !state.settings.customActions {
+                    Image(systemName: "lock")
+                        .foregroundStyle(.secondary)
+                        .help("Needs Custom actions (General)")
+                }
                 Toggle("Enabled", isOn: Binding(
                     get: { s.enabled },
                     set: { var copy = s; copy.enabled = $0; state.update(copy) }
@@ -146,9 +151,11 @@ struct PermissionBanner: View {
                 .font(.title2)
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("DoubleTake needs Accessibility access")
+                Text(state.isTrusted ? "Custom actions need Accessibility" : "DoubleTake needs Input Monitoring")
                     .font(.headline)
-                Text("Turn on DoubleTake in System Settings › Privacy & Security › Accessibility. It needs this to catch your shortcuts before other apps see them, and to send keystrokes for you. It starts working the moment you do.")
+                Text(state.isTrusted
+                     ? "Turn on DoubleTake in System Settings › Privacy & Security › Accessibility so it can press keys and click menus for you, or switch Custom actions off in General."
+                     : "Turn on DoubleTake in System Settings › Privacy & Security › Input Monitoring so it can notice your shortcuts. It only watches key presses; it can't type or control anything. If macOS offers to quit and reopen DoubleTake, accept.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

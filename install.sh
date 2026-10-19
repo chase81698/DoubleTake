@@ -48,6 +48,7 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     if [[ -e "/Library/Application Support/DoubleTake" ]] || ls /private/etc/sudoers.d/doubletake-* >/dev/null 2>&1; then
         as_admin sh -c 'rm -f /private/etc/sudoers.d/doubletake-*; rm -rf "/Library/Application Support/DoubleTake"'
     fi
+    tccutil reset ListenEvent "$BUNDLE_ID" >/dev/null 2>&1 || true
     tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
     say "Done. Your shortcuts are kept in ~/Library/Application Support/DoubleTake (delete it to start fresh)."
     exit 0
@@ -83,7 +84,7 @@ else
 fi
 [[ -d "$NEW_APP" ]] || die "Build failed."
 
-# A new ad-hoc signature invalidates the old Accessibility grant; clear it so macOS asks again cleanly.
+# A new ad-hoc signature invalidates the old permission grants; clear them so macOS asks again cleanly.
 if [[ -d "$APP_DEST" && "$(cdhash "$APP_DEST")" != "$(cdhash "$NEW_APP")" ]] \
     && codesign -dvvv "$NEW_APP" 2>&1 | grep -q "Signature=adhoc"; then
     RESET_PERMISSION=1
@@ -94,7 +95,10 @@ quit_app
 [[ -e "$APP_DEST" ]] && as_admin rm -rf "$APP_DEST"
 as_admin ditto "$NEW_APP" "$APP_DEST"
 xattr -dr com.apple.quarantine "$APP_DEST" 2>/dev/null || true
-[[ -n "${RESET_PERMISSION:-}" ]] && tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
+if [[ -n "${RESET_PERMISSION:-}" ]]; then
+    tccutil reset ListenEvent "$BUNDLE_ID" >/dev/null 2>&1 || true
+    tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
+fi
 
 CLI_TARGET="$APP_DEST/Contents/MacOS/DoubleTake"
 if [[ "$(readlink "$CLI_DEST" 2>/dev/null)" != "$CLI_TARGET" ]]; then
@@ -114,7 +118,8 @@ cat <<MSG
   DoubleTake runs quietly in the background (no menu bar or Dock icon) and starts at login.
   Open it from Applications or with \`doubletake open\` to edit shortcuts.
   The first time, macOS asks you to allow it under
-  System Settings › Privacy & Security › Accessibility. Switch it on and you're done.
+  System Settings › Privacy & Security › Input Monitoring (watch-only). Switch it on and you're done.
+  Actions that press keys or click menus need Custom actions (General), which ask for Accessibility.
 
   Try:  doubletake list      doubletake help      doubletake help --llm
 

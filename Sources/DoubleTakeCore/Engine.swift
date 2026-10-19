@@ -51,6 +51,11 @@ public final class Engine {
     public var maxTapHold: TimeInterval = 0.4
     /// Longest a modifier-only combo (e.g. ⌃⌥) may be held and still fire on release.
     public var maxModifierComboHold: TimeInterval = 1.0
+    /// Whether keys can be held back and replayed. False when DoubleTake can only watch the keyboard:
+    /// J + K style combos are then ignored, since their first key would already have reached the front app.
+    public var canHoldKeys = true {
+        didSet { rebuild() }
+    }
 
     public var onFire: (Shortcut) -> Void = { _ in }
     /// Events the engine held back and now wants re-posted, in order.
@@ -366,7 +371,7 @@ public final class Engine {
 
     private func rebuild() {
         active = shortcuts.filter(\.enabled).flatMap { s in
-            s.triggers.filter(\.isComplete).map { (shortcut: s, trigger: $0) }
+            s.triggers.filter { $0.isComplete && (canHoldKeys || !$0.needsCustomActions) }.map { (shortcut: s, trigger: $0) }
         }
         pending = nil
         flushHeld()

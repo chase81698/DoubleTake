@@ -7,6 +7,10 @@ private let log = Logger(subsystem: "io.github.chase81698.DoubleTake", category:
 /// Performs a shortcut's action.
 @MainActor
 enum ActionRunner {
+    /// Set from the app's settings and permissions. Actions that press keys or click menus need both.
+    static var customActionsEnabled = false
+    static var accessibilityGranted = false
+
     /// Runs a shortcut's action. `completion` receives nil on success or an error message.
     static func run(_ shortcut: Shortcut, completion: ((String?) -> Void)? = nil) {
         let done = completion ?? { error in
@@ -15,6 +19,14 @@ enum ActionRunner {
             NSSound.beep()
         }
         let action = shortcut.action
+        if action.needsCustomActions {
+            guard customActionsEnabled else {
+                return done("“\(shortcut.name)” presses keys or clicks a menu, so it needs Custom actions. Turn them on in General (or `doubletake settings --custom-actions on`).")
+            }
+            guard accessibilityGranted else {
+                return done("Custom actions need Accessibility: allow DoubleTake in System Settings › Privacy & Security › Accessibility.")
+            }
+        }
         if action.type == .shellScript, action.runAsAdmin {
             return AdminScripts.run(id: shortcut.id, name: shortcut.name, script: action.script, done)
         }
@@ -78,15 +90,18 @@ enum ActionRunner {
         case .toggleDarkMode:
             runProcess("/usr/bin/osascript", ["-e",
                 "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"], done)
-        case .toggleMute:
-            SyntheticInput.mediaKey(7)
-            done(nil)
-        case .volumeUp:
-            SyntheticInput.mediaKey(0)
-            done(nil)
-        case .volumeDown:
-            SyntheticInput.mediaKey(1)
-            done(nil)
+        case .toggleMute, .volumeUp, .volumeDown:
+            if customActionsEnabled && accessibilityGranted {
+                // The media keys also show the on-screen volume indicator.
+                SyntheticInput.mediaKey(action == .toggleMute ? 7 : action == .volumeUp ? 0 : 1)
+                return done(nil)
+            }
+            let script = switch action {
+            case .toggleMute: "set volume output muted not (output muted of (get volume settings))"
+            case .volumeUp: "set volume output volume ((output volume of (get volume settings)) + 6.25)"
+            default: "set volume output volume ((output volume of (get volume settings)) - 6.25)"
+            }
+            runProcess("/usr/bin/osascript", ["-e", script], done)
         case .playPause:
             SyntheticInput.mediaKey(16)
             done(nil)
