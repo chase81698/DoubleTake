@@ -394,7 +394,9 @@ enum CLI {
             "appRunning": running != nil ? "yes" : "no",
             "inputMonitoringGranted": live ? (reported!.inputMonitoringGranted || reported!.accessibilityGranted ? "yes" : "no") : "unknown",
             "customActions": config.map { $0.settings.customActions ? "on" : "off" } ?? "off",
-            "accessibilityGranted": live ? (reported!.accessibilityGranted ? "yes" : "no") : "unknown",
+            "accessibilityGranted": config.map(\.settings.customActions) == true
+                ? (live ? (reported!.accessibilityGranted ? "yes" : "no") : "unknown")
+                : "not needed (Custom actions are off)",
             "listening": live ? (reported!.listening ? "yes" : "no") : "no",
             "enabled": config.map { $0.settings.isEnabled ? "yes" : "no" } ?? "yes",
             "shortcuts": "\(config?.shortcuts.count ?? 0) (\(config?.shortcuts.filter(\.enabled).count ?? 0) enabled)",
@@ -405,7 +407,7 @@ enum CLI {
         ]
         if args.flag("json") { return try printJSON(info) }
         for key in ["version", "appRunning", "inputMonitoringGranted", "customActions", "accessibilityGranted", "listening", "enabled", "shortcuts", "adminScriptsApproved", "app", "config", "cli"] {
-            print("\(key):".padding(toLength: 22, withPad: " ", startingAt: 0) + info[key]!)
+            print("\(key):".padding(toLength: 25, withPad: " ", startingAt: 0) + info[key]!)
         }
         if running == nil { print("\nStart the app with `doubletake open`; shortcuts only work while it runs.") }
         if live, let reported, !reported.inputMonitoringGranted, !reported.accessibilityGranted {
