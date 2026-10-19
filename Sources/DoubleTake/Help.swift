@@ -34,7 +34,8 @@ enum Help {
 
     OTHER
       actions | keys                          list built-in actions / key names
-      settings [--interval s] [--chord-window s] [--on|--off]
+      settings [--interval s] [--chord-window s] [--update-check on|off] [--on|--off]
+      update [--check]                        install the newest release from GitHub (--check: just look)
       status                                  is the app running and allowed to listen?
       export [file] | import <file|-> [--replace]
       open | quit                             open the editor window / stop the background app
@@ -102,12 +103,19 @@ enum Help {
     doubletake add-preset <number> [--disabled]
     doubletake actions [--json]           built-in action names for --system
     doubletake keys [--json]              key names usable in triggers and keystrokes
-    doubletake settings [--json] [--interval <seconds 0.1-1.0>] [--chord-window <seconds 0.01-0.5>] [--on|--off]
+    doubletake settings [--json] [--interval <seconds 0.1-1.0>] [--chord-window <seconds 0.01-0.5>] [--update-check on|off] [--on|--off]
+        --update-check on makes the app look for a newer release each time it opens (off by default).
     doubletake status [--json]
     doubletake export [<file>]            prints JSON when no file is given
     doubletake import <file|-> [--replace]   merges by default; accepts a config object or an array of shortcuts
     doubletake open                       start the app if needed and show its editor window
     doubletake quit                       stop the background app (shortcuts stop working)
+    doubletake update [--check] [--json]  download and install the newest GitHub release, reopening the app if it
+                                          was running; --check only reports whether one is available
+
+    ## Network access
+    Checking for updates (the update command, the app's Check for Updates button, or the optional check when the
+    app opens) is the only time DoubleTake uses the internet. Nothing else it does touches the network.
 
     ## Trigger syntax
     Tap triggers (the key must be pressed and released on its own, quickly):
@@ -145,7 +153,7 @@ enum Help {
 
     ## Config file
     \(DoubleTakeCoreInfo.configPath)
-    JSON: {"settings": {"isEnabled", "doubleTapInterval", "chordWindow"},
+    JSON: {"settings": {"isEnabled", "doubleTapInterval", "chordWindow", "checkForUpdatesOnLaunch"},
            "shortcuts": [{"id", "name", "enabled", "triggers": [...], "action": {...}}]}
     Missing fields take defaults. Trigger fields: kind ("tap"|"combo"), keyCode, eitherSide, tapCount,
     modifiers (bitmask: fn=1 ctrl=2 opt=4 shift=8 cmd=16), keys (key codes).

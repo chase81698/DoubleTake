@@ -129,6 +129,8 @@ enum CLI {
         case "revoke-admin":
             try AdminScripts.revokeAll()
             print("Removed all administrator approvals.")
+        case "update":
+            try update(args)
         case "install-cli":
             try Installer.installCLI()
             print("Installed \(Installer.cliPath).")
@@ -289,11 +291,19 @@ enum CLI {
             guard let d = Double(v), (0.01...0.5).contains(d) else { throw CLIError("--chord-window is seconds between 0.01 and 0.5") }
             return d
         }
+        let updateCheck = try args.value("update-check").map { v -> Bool in
+            switch v.lowercased() {
+            case "on": return true
+            case "off": return false
+            default: throw CLIError("--update-check is on or off")
+            }
+        }
         let on = args.flag("on"), off = args.flag("off")
-        if interval != nil || window != nil || on || off {
+        if interval != nil || window != nil || updateCheck != nil || on || off {
             try mutate { config in
                 if let interval { config.settings.doubleTapInterval = interval }
                 if let window { config.settings.chordWindow = window }
+                if let updateCheck { config.settings.checkForUpdatesOnLaunch = updateCheck }
                 if on { config.settings.isEnabled = true }
                 if off { config.settings.isEnabled = false }
                 return "Settings saved."
@@ -304,6 +314,53 @@ enum CLI {
         print("enabled:       \(s.isEnabled ? "on" : "off")")
         print("interval:      \(s.doubleTapInterval)s  (longest gap between taps)")
         print("chord-window:  \(s.chordWindow)s  (how close together keys count as simultaneous)")
+        print("update-check:  \(s.checkForUpdatesOnLaunch ? "on" : "off")  (ask GitHub for a newer version when the app opens)")
+    }
+
+    /// Same steps as the app's Check for Updates button. If the app is running, it's quit
+    /// for the install and opened again afterwards.
+    private static func update(_ args: Arguments) throws {
+        guard let current = Updater.currentVersion else {
+            throw CLIError("Run this from DoubleTake.app, not a bare build.")
+        }
+        let release = try wait { try await Updater.latestRelease() }
+        let latest = release.version
+        let available = latest.map { $0 > current } ?? false
+        if args.flag("check") {
+            if args.flag("json") {
+                return try printJSON(["current": current.description, "latest": latest?.description ?? release.tag,
+                                      "updateAvailable": available ? "yes" : "no"])
+            }
+            return print(available ? "DoubleTake \(latest!) is available (you have \(current)). Run `doubletake update` to install it."
+                                   : "DoubleTake \(current) is up to date.")
+        }
+        guard available, let latest else { return print("DoubleTake \(current) is up to date.") }
+
+        print("Downloading DoubleTake \(latest)…")
+        let app = try wait { try await Updater.download(release) }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: Installer.bundleID)
+        running.forEach { $0.terminate() }
+        let deadline = Date().addingTimeInterval(10)
+        while running.contains(where: { !$0.isTerminated }), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        }
+        print("Installing…")
+        let installed = try Updater.install(app)
+        if !running.isEmpty { NSWorkspace.shared.open(installed) }
+        print("Updated to DoubleTake \(latest).")
+        if Updater.isAdHocSigned {
+            print("macOS will ask you to switch on Accessibility for DoubleTake again.")
+        }
+    }
+
+    /// Runs async work from the synchronous CLI, keeping the main run loop turning meanwhile.
+    private static func wait<T>(_ work: @escaping @MainActor () async throws -> T) throws -> T {
+        var result: Result<T, Error>?
+        Task { @MainActor in
+            do { result = .success(try await work()) } catch { result = .failure(error) }
+        }
+        while result == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+        return try result!.get()
     }
 
     private static func status(_ args: Arguments) throws {
@@ -535,7 +592,7 @@ final class Arguments {
 
     private static let flagNames: Set<String> = [
         "json", "llm", "disabled", "enable", "disable", "toggle", "replace", "on", "off", "allow-duplicate",
-        "admin", "no-admin",
+        "admin", "no-admin", "check",
     ]
 
     init(_ args: [String]) {

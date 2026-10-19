@@ -6,6 +6,7 @@ struct GeneralView: View {
     @State private var cliInstalled = Installer.isCLIInstalled
     @State private var cliError: String?
     @State private var approvedScripts = AdminScripts.approvedCount()
+    private let updates = UpdateController.shared
 
     var body: some View {
         @Bindable var state = state
@@ -82,6 +83,25 @@ struct GeneralView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                LabeledContent("Version \(CLI.version)") {
+                    HStack {
+                        updateStatus
+                        Button("Check for Updates") {
+                            Task { await updates.checkAndInstall() }
+                        }
+                        .disabled(updates.isBusy)
+                    }
+                }
+                Toggle("Check for updates when DoubleTake opens", isOn: $state.settings.checkForUpdatesOnLaunch)
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Checking for updates is the only time DoubleTake connects to the internet. It asks GitHub for the latest release; if there's a newer one, it downloads and installs it, then reopens."
+                     + (Updater.isAdHocSigned ? " macOS then asks you to switch on Accessibility for it again." : ""))
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Status") {
                 LabeledContent("Accessibility access") {
                     if state.isTrusted {
@@ -125,6 +145,29 @@ struct GeneralView: View {
             Button("Restore Defaults", role: .destructive) { state.restoreDefaults() }
         } message: {
             Text("Your current shortcuts will be deleted.")
+        }
+    }
+
+    @ViewBuilder private var updateStatus: some View {
+        switch updates.phase {
+        case .idle:
+            EmptyView()
+        case .checking:
+            ProgressView().controlSize(.small)
+            Text("Checking…").foregroundStyle(.secondary)
+        case .upToDate:
+            Label("Up to date", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .downloading(let version):
+            ProgressView().controlSize(.small)
+            Text("Downloading \(version)…").foregroundStyle(.secondary)
+        case .installing(let version):
+            ProgressView().controlSize(.small)
+            Text("Installing \(version)…").foregroundStyle(.secondary)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .lineLimit(3)
+                .help(message)
         }
     }
 }

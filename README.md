@@ -11,7 +11,8 @@ together** (⌃⌥T, or two ordinary keys like J + K at the same moment).
   (Dictation, Siri, Spotlight, Mission Control, Show Desktop, Lock Screen, media keys, Dark Mode…).
 - **Give one action several triggers**, e.g. double-tap fn *or* ⌃⌥D.
 - **GUI for people, CLI for scripts and AI assistants.** Both edit the same config, and changes take effect immediately.
-- **Stays out of the way:** no menu bar or Dock icon. Native Swift, no dependencies, no network access, just one quiet background listener.
+- **Stays out of the way:** no menu bar or Dock icon. Native Swift, no dependencies, just one quiet background listener.
+- **Offline unless you ask:** checking for updates is the only time DoubleTake connects to the internet (see [Updating](#updating)).
 
 Requires macOS 15 or later (built for macOS 27).
 
@@ -82,6 +83,22 @@ How triggers behave:
 | Keys together | `J + K` | Those keys wait a split second (80 ms by default) before typing, in case they're part of a combo. |
 | Modifiers alone | `⌃ + ⌥` | Press them together and release them, with no other key in between. |
 
+## Updating
+
+In **General › Updates**, click **Check for Updates**. If GitHub has a newer release, DoubleTake downloads it, checks
+that it's an intact, newer copy of DoubleTake, installs it over the old one (asking for your password only if it
+can't write to that folder), then quits and reopens as the new version. Your shortcuts and settings carry over.
+Because DoubleTake isn't signed by Apple, macOS asks you to switch Accessibility on for it again after each update.
+
+**Check for updates when DoubleTake opens** does the same check each time the app starts and asks before installing.
+It's **off by default**.
+
+**Checking for updates is the only time DoubleTake connects to the internet.** It sends one request to GitHub
+(`api.github.com`) for the latest release and, if there's a newer one, downloads its `DoubleTake.zip` from GitHub. DoubleTake
+uses the network for nothing else (actions you set up, like opening a URL or running a script, do what you tell them),
+and with the automatic check off, nothing is sent until you click the button. From
+Terminal: `doubletake update` (or `doubletake update --check` to just look).
+
 ## Command line (and LLMs)
 
 ```bash
@@ -96,6 +113,7 @@ doubletake edit Terminal --add-trigger double:right-opt
 doubletake disable Notes
 doubletake run Terminal
 doubletake status
+doubletake update          # install the newest release from GitHub (--check to just look)
 ```
 
 Every read command accepts `--json`. `doubletake help` shows a summary, and **`doubletake help --llm` prints a

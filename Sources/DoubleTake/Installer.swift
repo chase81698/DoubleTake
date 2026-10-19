@@ -82,10 +82,12 @@ enum Installer {
         }
     }
 
-    private static func relaunch(at url: URL) {
+    /// Quits and opens the app at `url` once this process has exited.
+    static func relaunch(at url: URL) {
+        let pid = ProcessInfo.processInfo.processIdentifier
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", "sleep 1; /usr/bin/open \(quoted(url.path))"]
+        task.arguments = ["-c", "while kill -0 \(pid) 2>/dev/null; do sleep 0.2; done; /usr/bin/open \(quoted(url.path))"]
         try? task.run()
         NSApp.terminate(nil)
     }
@@ -122,7 +124,7 @@ enum Installer {
 
     // MARK: - Helpers
 
-    private static func runAsAdmin(_ command: String) throws {
+    static func runAsAdmin(_ command: String) throws {
         let escaped = command.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         let source = "do shell script \"\(escaped)\" with administrator privileges"
         var error: NSDictionary?
@@ -132,7 +134,7 @@ enum Installer {
         }
     }
 
-    private static func quoted(_ path: String) -> String {
+    static func quoted(_ path: String) -> String {
         "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

@@ -4,6 +4,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var isEnabled = true
     public var doubleTapInterval = 0.3
     public var chordWindow = 0.08
+    /// Ask GitHub for a newer release each time the app opens. Off unless the user turns it on.
+    public var checkForUpdatesOnLaunch = false
 
     public init() {}
 
@@ -12,6 +14,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         doubleTapInterval = try c.decodeIfPresent(Double.self, forKey: .doubleTapInterval) ?? 0.3
         chordWindow = try c.decodeIfPresent(Double.self, forKey: .chordWindow) ?? 0.08
+        checkForUpdatesOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdatesOnLaunch) ?? false
     }
 }
 

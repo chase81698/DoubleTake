@@ -32,6 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !launchedInBackground || state.needsAttention {
             showWindow()
         }
+        if state.settings.checkForUpdatesOnLaunch {
+            Task { await UpdateController.shared.checkOnLaunch() }
+        }
     }
 
     /// Double-clicking the app while it's already running.
