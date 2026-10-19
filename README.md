@@ -46,8 +46,12 @@ cd DoubleTake
 ./install.sh
 ```
 
-**Uninstall:** `./install.sh --uninstall` (or `curl … | bash -s -- --uninstall`). Your shortcuts stay in
-`~/Library/Application Support/DoubleTake/` until you delete that folder.
+**Uninstall:** in the app, **General › Uninstall DoubleTake…**, or `doubletake uninstall --yes` in Terminal (without
+`--yes` it just lists what it would remove). Either one removes the app, its login item, any administrator approvals
+(root-owned scripts and their sudo rule), the `doubletake` command and the Accessibility entry. Your shortcuts stay in
+`~/Library/Application Support/DoubleTake/` unless you tick **Also delete my shortcuts and settings**
+(`--delete-settings`). `./install.sh --uninstall` does the same from a clone. Dragging the app to the Trash isn't
+enough, because the login item and administrator approvals would be left behind.
 
 If you run the app from somewhere else (for example, Downloads), it offers to move itself to Applications.
 
@@ -83,6 +87,11 @@ It also starts hidden each time you log in. You can switch that off with **Start
 **once**. After that the script runs without asking again. DoubleTake installs a root-owned copy of that exact script and
 adds a sudo rule that covers only that file, so nothing else on your account can change what runs as root. If you edit the
 script, it asks for your password again. General shows how many scripts are approved and has a **Revoke All** button.
+
+Approving installs exactly the script you were shown, and only that one; other scripts are never approved along
+with it. The script's text goes straight from that dialog into the password-protected root step, and is written only
+to root-owned places (`/Library/Application Support/DoubleTake` and `/etc/sudoers.d`), so nothing running as you can
+swap it on the way.
 
 How triggers behave:
 

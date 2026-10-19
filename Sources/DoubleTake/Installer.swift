@@ -1,4 +1,6 @@
 import AppKit
+import DoubleTakeCore
+import ServiceManagement
 
 /// Knows where DoubleTake belongs: the app in /Applications, the CLI in /usr/local/bin.
 @MainActor
@@ -120,6 +122,95 @@ enum Installer {
         } catch {
             try runAsAdmin("rm -f \(quoted(cliPath))")
         }
+    }
+
+    // MARK: - Uninstall
+
+    static let loginItem = SMAppService.agent(plistName: "io.github.chase81698.DoubleTake.agent.plist")
+
+    /// Every DoubleTake.app to remove: this one, and the copy in /Applications.
+    private static var appsToRemove: [URL] {
+        var apps = [appBundleURL, FileManager.default.fileExists(atPath: applicationsURL.path) ? applicationsURL : nil]
+            .compactMap { $0?.standardizedFileURL }
+        apps = apps.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+        return apps
+    }
+
+    /// The `doubletake` link, if it points into a DoubleTake.app (so it's ours to remove).
+    private static var cliLinkIsOurs: Bool {
+        guard let dest = try? FileManager.default.destinationOfSymbolicLink(atPath: cliPath) else { return false }
+        return dest.hasSuffix("DoubleTake.app/Contents/MacOS/DoubleTake")
+    }
+
+    private static var dataLocations: [URL] {
+        let library = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library")
+        return [ConfigFile.directory,
+                library.appendingPathComponent("Caches/\(bundleID)"),
+                library.appendingPathComponent("HTTPStorages/\(bundleID)"),
+                library.appendingPathComponent("Saved Application State/\(bundleID).savedState")]
+    }
+
+    /// What uninstalling does, in plain words, shown before asking.
+    static func uninstallPlan(deleteSettings: Bool) -> [String] {
+        var plan: [String] = []
+        if loginItem.status != .notRegistered && loginItem.status != .notFound {
+            plan.append("Stop DoubleTake from starting at login")
+        }
+        let approved = AdminScripts.approvedCount()
+        if approved > 0 || FileManager.default.fileExists(atPath: AdminScripts.sudoersPath) {
+            plan.append("Remove \(approved == 1 ? "the administrator approval" : "\(approved) administrator approvals") (root-owned scripts and their sudo rule)")
+        }
+        if cliLinkIsOurs { plan.append("Remove the `doubletake` command from \(cliPath)") }
+        plan.append("Remove DoubleTake from Accessibility in System Settings")
+        for app in appsToRemove { plan.append("Move \(app.path) to the Trash") }
+        let home = NSHomeDirectory()
+        let config = ConfigFile.directory.path.replacingOccurrences(of: home, with: "~")
+        plan.append(deleteSettings
+            ? "Delete your shortcuts and settings (\(config)), plus DoubleTake's preferences and caches"
+            : "Keep your shortcuts and settings in \(config)")
+        return plan
+    }
+
+    /// Removes DoubleTake from this Mac, asking for an administrator password once if any part needs it.
+    /// Quits other running copies; the caller quits this one afterwards.
+    static func uninstall(deleteSettings: Bool) throws {
+        let fm = FileManager.default
+        try? loginItem.unregister()
+        run("/bin/launchctl", "bootout", "gui/\(getuid())/\(bundleID).agent")
+
+        let me = NSRunningApplication.current.processIdentifier
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) where app.processIdentifier != me {
+            app.forceTerminate()
+        }
+
+        var rootSteps: [String] = []
+        if AdminScripts.approvedCount() > 0 || fm.fileExists(atPath: AdminScripts.sudoersPath) {
+            rootSteps.append(AdminScripts.removalCommand)
+        }
+        if cliLinkIsOurs, (try? fm.removeItem(atPath: cliPath)) == nil {
+            rootSteps.append("/bin/rm -f \(quoted(cliPath))")
+        }
+        for app in appsToRemove where (try? fm.trashItem(at: app, resultingItemURL: nil)) == nil {
+            rootSteps.append("/bin/rm -rf \(quoted(app.path))")
+        }
+        if !rootSteps.isEmpty {
+            try runAsAdmin(rootSteps.joined(separator: "; "))
+        }
+        run("/usr/bin/tccutil", "reset", "Accessibility", bundleID)
+        if deleteSettings {
+            for url in dataLocations { try? fm.removeItem(at: url) }
+            run("/usr/bin/defaults", "delete", bundleID)
+        }
+    }
+
+    private static func run(_ tool: String, _ arguments: String...) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: tool)
+        task.arguments = arguments
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+        task.waitUntilExit()
     }
 
     // MARK: - Helpers

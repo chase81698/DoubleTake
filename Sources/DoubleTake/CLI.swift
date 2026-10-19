@@ -124,13 +124,23 @@ enum CLI {
                 print(s.action.script)
             }
             print("\nAsking for your password (in a macOS dialog) to approve \(admin.count == 1 ? "this script" : "these scripts")…")
-            try AdminScripts.approveAll()
+            try AdminScripts.approve(admin.map { ($0.id, $0.name, $0.action.script) })
             print("Approved. \(admin.count == 1 ? "It runs" : "They run") as root without asking again until edited.")
         case "revoke-admin":
             try AdminScripts.revokeAll()
             print("Removed all administrator approvals.")
         case "update":
             try update(args)
+        case "uninstall":
+            let deleteSettings = args.flag("delete-settings")
+            let plan = Installer.uninstallPlan(deleteSettings: deleteSettings)
+            guard args.flag("yes") else {
+                print("Uninstalling DoubleTake would:")
+                plan.forEach { print("  • \($0)") }
+                return print("\nRun `doubletake uninstall --yes\(deleteSettings ? " --delete-settings" : "")` to do it.")
+            }
+            try Installer.uninstall(deleteSettings: deleteSettings)
+            print("DoubleTake is uninstalled.")
         case "install-cli":
             try Installer.installCLI()
             print("Installed \(Installer.cliPath).")
@@ -592,7 +602,7 @@ final class Arguments {
 
     private static let flagNames: Set<String> = [
         "json", "llm", "disabled", "enable", "disable", "toggle", "replace", "on", "off", "allow-duplicate",
-        "admin", "no-admin", "check",
+        "admin", "no-admin", "check", "yes", "delete-settings",
     ]
 
     init(_ args: [String]) {

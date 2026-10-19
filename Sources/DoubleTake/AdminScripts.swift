@@ -24,7 +24,7 @@ enum AdminScripts {
     static var sudoersPath: String { "/private/etc/sudoers.d/doubletake-\(userKey)" }
 
     static func path(for id: UUID) -> String {
-        "\(userDirectory)/\(id.uuidString.lowercased()).sh"
+        "\(userDirectory)/\(fileName(for: id))"
     }
 
     private static func fileContents(_ script: String) -> String {
@@ -49,45 +49,47 @@ enum AdminScripts {
         (try? FileManager.default.contentsOfDirectory(atPath: userDirectory))?.filter { $0.hasSuffix(".sh") }.count ?? 0
     }
 
-    /// Installs every "Run as administrator" script in the saved config and removes any others,
-    /// after one password prompt.
-    static func approveAll() throws {
-        let shortcuts = adminShortcuts(in: (try ConfigFile.load())?.shortcuts ?? [])
-        guard !shortcuts.isEmpty else { return try revokeAll() }
-
-        let stage = FileManager.default.temporaryDirectory.appendingPathComponent("doubletake-approve-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: stage) }
-
-        var lines = ["# Managed by DoubleTake: lets \(NSUserName()) run their approved DoubleTake scripts as root."]
-        var installs: [String] = []
-        for s in shortcuts {
-            let name = "\(s.id.uuidString.lowercased()).sh"
-            try fileContents(s.action.script).write(to: stage.appendingPathComponent(name), atomically: true, encoding: .utf8)
-            let target = path(for: s.id)
-            lines.append("\(sudoersUser) ALL=(root) NOPASSWD: \(target.replacingOccurrences(of: " ", with: "\\ "))")
-            installs.append("/usr/bin/install -m 755 -o root -g wheel \(quoted(stage.appendingPathComponent(name).path)) \(quoted(target))")
+    /// Approves exactly these scripts, the ones the user was just shown, after one password prompt.
+    /// Scripts approved earlier stay approved; approvals for shortcuts that no longer run as
+    /// administrator are dropped. The text approved is the text passed in, never re-read from the
+    /// config file, so nothing can change a script between the user seeing it and it becoming root.
+    static func approve(_ scripts: [(id: UUID, name: String, script: String)]) throws {
+        guard !scripts.isEmpty else { return }
+        let fm = FileManager.default
+        let names = Set(scripts.map { fileName(for: $0.id) })
+        let stillAdmin = Set(adminShortcuts(in: (try? ConfigFile.load())?.shortcuts ?? []).map { fileName(for: $0.id) })
+        // Earlier approvals are root-owned files; keep them unless their shortcut stopped running as admin.
+        let existing = ((try? fm.contentsOfDirectory(atPath: userDirectory)) ?? []).filter { name in
+            name.hasSuffix(".sh") && !names.contains(name)
+                && ((try? fm.attributesOfItem(atPath: "\(userDirectory)/\(name)"))?[.ownerAccountID] as? NSNumber)?.intValue == 0
         }
-        let sudoers = stage.appendingPathComponent("sudoers")
-        try (lines.joined(separator: "\n") + "\n").write(to: sudoers, atomically: true, encoding: .utf8)
+        let keep = existing.filter { stillAdmin.contains($0) }
+        let remove = existing.filter { !stillAdmin.contains($0) }
 
-        let command = (["set -e",
-                        "/bin/mkdir -p \(quoted(root))",
-                        "/usr/sbin/chown root:wheel \(quoted(root)) && /bin/chmod 755 \(quoted(root))",
-                        "/bin/rm -rf \(quoted(userDirectory))",
-                        "/usr/bin/install -d -m 755 -o root -g wheel \(quoted(userDirectory))"]
-                       + installs
-                       + ["/usr/sbin/visudo -cqf \(quoted(sudoers.path))",
-                          "/usr/bin/install -m 440 -o root -g wheel \(quoted(sudoers.path)) \(quoted(sudoersPath))"])
-            .joined(separator: "; ")
-        try runAsAdmin(command, prompt: "DoubleTake wants to let \(shortcuts.count) approved script\(shortcuts.count == 1 ? "" : "s") run as administrator without asking again.")
+        let command = try installer.command(installing: scripts.map { (fileName(for: $0.id), fileContents($0.script)) },
+                                        keeping: keep, removing: remove)
+        let prompt = scripts.count == 1
+            ? "DoubleTake wants to let “\(scripts[0].name)” run as administrator without asking again."
+            : "DoubleTake wants to let \(scripts.count) scripts run as administrator without asking again."
+        try runAsAdmin(command, prompt: prompt)
     }
+
+    private static var installer: AdminInstall {
+        AdminInstall(rootDirectory: root, directory: userDirectory, sudoersPath: sudoersPath, sudoersUser: sudoersUser)
+    }
+
+    private static func fileName(for id: UUID) -> String { "\(id.uuidString.lowercased()).sh" }
 
     /// Removes every approval (scripts and sudoers rule).
     static func revokeAll() throws {
         guard FileManager.default.fileExists(atPath: userDirectory) || FileManager.default.fileExists(atPath: sudoersPath) else { return }
-        try runAsAdmin("/bin/rm -f \(quoted(sudoersPath)); /bin/rm -rf \(quoted(userDirectory))",
-                       prompt: "DoubleTake wants to remove its administrator access.")
+        try runAsAdmin(removalCommand, prompt: "DoubleTake wants to remove its administrator access.")
+    }
+
+    /// Root command that removes this user's approvals, and the shared folder once no one has any.
+    static var removalCommand: String {
+        "/bin/rm -f \(quoted(sudoersPath)) \(quoted(sudoersPath + ".new")); /bin/rm -rf \(quoted(userDirectory)); "
+            + "/bin/rmdir \(quoted(root)) \(quoted((root as NSString).deletingLastPathComponent)) 2>/dev/null || true"
     }
 
     /// Runs an approved script, or (in the app) offers to approve it first.
@@ -111,7 +113,7 @@ enum AdminScripts {
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return done(nil) }
         do {
-            try approveAll()
+            try approve([(id, name, script)])
         } catch {
             return done(error.localizedDescription)
         }

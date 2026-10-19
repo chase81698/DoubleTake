@@ -138,6 +138,7 @@ struct GeneralView: View {
                 }
                 Button("Restore Default Shortcuts…", role: .destructive) { confirmRestore = true }
                 Button("Quit DoubleTake (stops all shortcuts)") { NSApp.terminate(nil) }
+                Button("Uninstall DoubleTake…", role: .destructive) { confirmUninstall() }
             }
         }
         .formStyle(.grouped)
@@ -145,6 +146,28 @@ struct GeneralView: View {
             Button("Restore Defaults", role: .destructive) { state.restoreDefaults() }
         } message: {
             Text("Your current shortcuts will be deleted.")
+        }
+    }
+
+    private func confirmUninstall() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Uninstall DoubleTake?"
+        let keep = Installer.uninstallPlan(deleteSettings: false)
+        alert.informativeText = keep.map { "• " + $0 }.joined(separator: "\n")
+        let deleteSettings = NSButton(checkboxWithTitle: "Also delete my shortcuts and settings", target: nil, action: nil)
+        alert.accessoryView = deleteSettings
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try Installer.uninstall(deleteSettings: deleteSettings.state == .on)
+            NSApp.terminate(nil)
+        } catch {
+            let failure = NSAlert(error: error)
+            failure.messageText = "Couldn't finish uninstalling DoubleTake."
+            failure.runModal()
         }
     }
 

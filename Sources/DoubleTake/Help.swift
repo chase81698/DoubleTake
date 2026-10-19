@@ -41,6 +41,7 @@ enum Help {
       open | quit                             open the editor window / stop the background app
       approve | revoke-admin                  approve --admin scripts once (password dialog) / remove approvals
       install-cli | uninstall-cli             add or remove /usr/local/bin/doubletake
+      uninstall [--delete-settings] [--yes]   show what uninstalling removes; --yes does it
       help --llm                              full reference for AI assistants
 
     EXAMPLES
@@ -110,6 +111,10 @@ enum Help {
     doubletake import <file|-> [--replace]   merges by default; accepts a config object or an array of shortcuts
     doubletake open                       start the app if needed and show its editor window
     doubletake quit                       stop the background app (shortcuts stop working)
+    doubletake uninstall [--delete-settings] [--yes]
+                                          without --yes, only lists what it would remove; with --yes, removes the app,
+                                          login item, admin approvals, the CLI link and the Accessibility entry.
+                                          Shortcuts are kept unless --delete-settings. Never run --yes unless the user asked.
     doubletake update [--check] [--json]  download and install the newest GitHub release, reopening the app if it
                                           was running; --check only reports whether one is available
 

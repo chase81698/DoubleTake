@@ -35,7 +35,7 @@ struct ShortcutEditor: View {
             }
 
             Section("Action") {
-                ActionEditor(action: $shortcut.action, shortcutID: shortcut.id)
+                ActionEditor(action: $shortcut.action, shortcutID: shortcut.id, shortcutName: shortcut.name)
                 HStack {
                     Button("Test Action") {
                         testResult = nil
@@ -199,6 +199,7 @@ struct RecorderButton: View {
 struct ActionEditor: View {
     @Binding var action: Action
     let shortcutID: UUID
+    let shortcutName: String
     @State private var keystrokeRecorderID = UUID()
     @State private var availableShortcuts: [String] = []
 
@@ -244,7 +245,7 @@ struct ActionEditor: View {
             scriptEditor(placeholder: "Runs in zsh as a login shell, so your usual PATH and tools are available.")
             Toggle("Run as administrator", isOn: $action.runAsAdmin)
             if action.runAsAdmin {
-                AdminApprovalRow(id: shortcutID, script: action.script)
+                AdminApprovalRow(id: shortcutID, name: shortcutName, script: action.script)
             }
 
         case .appleScript:
@@ -334,6 +335,7 @@ struct ActionEditor: View {
 /// Shows whether a "Run as administrator" script is approved, and approves it.
 struct AdminApprovalRow: View {
     let id: UUID
+    let name: String
     let script: String
     @State private var refresh = 0
     @State private var error: String?
@@ -351,7 +353,7 @@ struct AdminApprovalRow: View {
                     Spacer()
                     Button("Approve…") {
                         do {
-                            try AdminScripts.approveAll()
+                            try AdminScripts.approve([(id, name, script)])
                             error = nil
                         } catch {
                             self.error = error.localizedDescription
