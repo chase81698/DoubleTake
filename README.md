@@ -17,6 +17,18 @@ Requires macOS 15 or later (built for macOS 27).
 
 ## Install
 
+1. **[Download DoubleTake.dmg](https://github.com/chase81698/DoubleTake/releases/latest/download/DoubleTake.dmg)**
+   (it's also on the [Releases](https://github.com/chase81698/DoubleTake/releases) page) and open it.
+2. **Drag DoubleTake into Applications**, then open it from Applications.
+3. **The first time only:** DoubleTake isn't signed by Apple, so macOS says it can't check it for malicious software.
+   Click **Done**, open **System Settings › Privacy & Security**, scroll down to "DoubleTake was blocked", click
+   **Open Anyway**, and confirm. After that it opens normally.
+4. Switch DoubleTake on when it asks for **Accessibility** access (see below).
+
+The `doubletake` command line tool is optional: in the app, go to **General › Command Line** and click **Install `doubletake`**.
+
+**Or in Terminal**, which installs the app and the command in one step, with no Gatekeeper prompt:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chase81698/DoubleTake/main/install.sh | bash
 ```
@@ -105,8 +117,11 @@ built-in list.
 ```bash
 swift test                 # engine tests
 scripts/build-app.sh       # → build/DoubleTake.app (ad-hoc signed; set SIGN_IDENTITY to use your certificate)
-scripts/package-release.sh # → dist/DoubleTake.zip (universal), for a GitHub release
+scripts/package-release.sh # → dist/DoubleTake.dmg + dist/DoubleTake.zip (universal), for a GitHub release
 ```
+
+`scripts/make-dmg.sh` lays out the drag-to-Applications window with Finder, so run it from a logged-in session.
+`swift scripts/make-dmg-background.swift` redraws its background picture.
 
 Layout:
 
