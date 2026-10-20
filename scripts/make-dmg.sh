@@ -11,7 +11,8 @@ OUT=dist/DoubleTake.dmg
 [[ -d "$APP" ]] || { echo "error: $APP is missing; run scripts/build-app.sh first" >&2; exit 1; }
 [[ -e "/Volumes/$VOLUME" ]] && hdiutil detach "/Volumes/$VOLUME" -quiet
 
-WORK="$(mktemp -d)"
+# Finder records the image's path in the window layout, so build somewhere that doesn't name this Mac's user folders.
+WORK="$(mktemp -d /tmp/doubletake-dmg.XXXXXX)"
 trap 'hdiutil detach "/Volumes/$VOLUME" -quiet 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/stage/.background"
